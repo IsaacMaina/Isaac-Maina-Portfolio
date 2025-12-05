@@ -28,17 +28,17 @@ export async function GET(request: NextRequest) {
 
     // The education, experience, and certifications tables don't have a direct relationship with user
     // Let me adjust the query to get all records since they're not user-specific yet in the schema
-    const allEducation = await db
+    const educationData = await db
       .select()
       .from(education)
       .orderBy(asc(education.orderIndex));
 
-    const allExperience = await db
+    const experienceData = await db
       .select()
       .from(experience)
       .orderBy(asc(experience.orderIndex));
 
-    const allCertifications = await db
+    const certificationsData = await db
       .select()
       .from(certifications)
       .orderBy(asc(certifications.orderIndex));
@@ -126,9 +126,9 @@ export async function GET(request: NextRequest) {
       phone: profile.phone || "+254758302725",
       careerFocus: profile.careerFocus || "Web Development • IT Support • Data Analysis",
       email: session.user?.email || "mainaisaacwachira2000@gmail.com",
-      education: allEducation,
-      experiences: allExperience,
-      certifications: allCertifications
+      education: educationData,
+      experiences: experienceData,
+      certifications: certificationsData
     });
   } catch (error) {
     console.error('Error fetching about data:', error);
@@ -144,6 +144,20 @@ export async function PUT(request: NextRequest) {
     if (!session || !session.user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Get the Supabase client to handle image deletion
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
 
     const db = getDb();
     const body = await request.json();
@@ -183,20 +197,6 @@ export async function PUT(request: NextRequest) {
 
           // Only delete if it's a profile-images path to avoid deleting other images
           if (oldImagePath && oldImagePath.startsWith('profile-images/')) {
-            // Initialize Supabase client to delete old image
-            const cookieStore = cookies();
-            const supabase = createServerClient(
-              process.env.NEXT_PUBLIC_SUPABASE_URL!,
-              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-              {
-                cookies: {
-                  get(name: string) {
-                    return cookieStore.get(name)?.value;
-                  },
-                },
-              }
-            );
-
             const { error } = await supabase.storage
               .from('Images')
               .remove([oldImagePath]);
@@ -211,7 +211,7 @@ export async function PUT(request: NextRequest) {
             console.log('Skipping deletion - not a profile-images path:', oldImagePath);
           }
         } catch (error) {
-          console.error('Error initializing Supabase client for image deletion:', error);
+          console.error('Error deleting old image from Supabase:', error);
           // Continue anyway, don't fail the update if image deletion fails
         }
       } else {
@@ -222,7 +222,6 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update user profile data
-
     if (existingProfile.length > 0) {
       // Update existing profile
       await db
