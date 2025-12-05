@@ -1,0 +1,26 @@
+{
+  "name": "Isaac Maina Portfolio",
+  "short_name": "Isaac Maina",
+  "description": "Official portfolio of Isaac Maina, showcasing expertise in web development, IT support, and data analysis.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
