@@ -35,73 +35,120 @@ export async function getGalleryAlbumsFromStorage(): Promise<GalleryAlbum[]> {
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // First, list all folders inside the 'gallery/' path (these will be our albums)
-    const { data: folders, error: foldersError } = await supabase.storage
+    const albums: GalleryAlbum[] = [];
+
+    // First, list ALL items inside the 'gallery/' path (both files and folders)
+    const { data: galleryItems, error: galleryError } = await supabase.storage
       .from('Images')
       .list('gallery/', {
-        limit: 100,
+        limit: 1000, // Increased limit to get all items
         offset: 0,
         sortBy: { column: 'name', order: 'asc' },
       });
 
-    if (foldersError) {
-      console.error('Error fetching gallery folders from Supabase storage:', foldersError);
+    if (galleryError) {
+      console.error('Error fetching gallery content from Supabase storage:', galleryError);
       return [];
     }
 
-    if (!folders || folders.length === 0) {
-      console.log('No gallery folders found in Supabase storage');
+    if (!galleryItems || galleryItems.length === 0) {
+      console.log('No gallery content found in Supabase storage');
       return [];
     }
 
-    const albums: GalleryAlbum[] = [];
+    // Separate folders from direct files
+    // In Supabase storage, when listing in a folder, the response contains both files and sub-folders
+    // Sub-folders will have a path that ends with '/' or will have different properties than files
+    // Usually, files have extensions and folders don't, but this could vary
+    const folders = [];
+    const directFiles = [];
+
+    for (const item of galleryItems) {
+      if (item.name.includes('.')) {
+        // This is a file (has an extension)
+        directFiles.push(item);
+      } else {
+        // This is likely a folder (no extension)
+        folders.push(item);
+      }
+    }
 
     // Process each folder as an album
     for (const folder of folders) {
-      if (folder.type === 'folder') {
-        // List all files in this specific album folder
-        const { data: files, error: filesError } = await supabase.storage
+      // List all files in this specific album folder
+      const { data: files, error: filesError } = await supabase.storage
+        .from('Images')
+        .list(`gallery/${folder.name}/`, {
+          limit: 1000,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (filesError) {
+        console.error(`Error fetching files from gallery/${folder.name}/:`, filesError);
+        continue;
+      }
+
+      if (files && files.length > 0) {
+        // Process all files in this specific gallery album
+        const galleryItems: GalleryItem[] = [];
+
+        for (const file of files) {
+          if (!file.name) continue; // Skip if file has no name
+
+          // Generate a public URL for each image
+          const { data: { publicUrl } } = supabase.storage
+            .from('Images')
+            .getPublicUrl(`gallery/${folder.name}/${file.name}`);
+
+          const fileEntry: GalleryItem = {
+            id: Date.now() + Math.floor(Math.random() * 10000) + galleryItems.length, // Generate temporary ID
+            src: publicUrl,
+            alt: file.name.replace(/\.[^/.]+$/, ""), // Remove extension for alt text
+            category: folder.name,
+            type: 'file' // Marking as file
+          };
+
+          galleryItems.push(fileEntry);
+        }
+
+        // Add the album to the list
+        albums.push({
+          name: folder.name,
+          items: galleryItems
+        });
+      }
+    }
+
+    // Process direct files in the root gallery folder as a separate album
+    if (directFiles && directFiles.length > 0) {
+      const directGalleryItems: GalleryItem[] = [];
+
+      for (const file of directFiles) {
+        if (!file.name) continue; // Skip if file has no name
+
+        // Generate a public URL for each image
+        const { data: { publicUrl } } = supabase.storage
           .from('Images')
-          .list(`gallery/${folder.name}/`, {
-            limit: 1000,
-            offset: 0,
-            sortBy: { column: 'name', order: 'asc' },
-          });
+          .getPublicUrl(`gallery/${file.name}`);
 
-        if (filesError) {
-          console.error(`Error fetching files from gallery/${folder.name}/:`, filesError);
-          continue;
-        }
+        const fileEntry: GalleryItem = {
+          id: Date.now() + Math.floor(Math.random() * 10000) + directGalleryItems.length, // Generate temporary ID
+          src: publicUrl,
+          alt: file.name.replace(/\.[^/.]+$/, ""), // Remove extension for alt text
+          category: 'gallery', // Use 'gallery' as the default category for root files
+          type: 'file' // Marking as file
+        };
 
-        if (files && files.length > 0) {
-          // Process all files in this specific gallery album
-          const galleryItems: GalleryItem[] = [];
+        directGalleryItems.push(fileEntry);
+      }
 
-          for (const file of files) {
-            if (!file.name) continue; // Skip if file has no name
-
-            // Generate a public URL for each image
-            const { data: { publicUrl } } = supabase.storage
-              .from('Images')
-              .getPublicUrl(`gallery/${folder.name}/${file.name}`);
-
-            const fileEntry: GalleryItem = {
-              id: Date.now() + Math.floor(Math.random() * 10000) + galleryItems.length, // Generate temporary ID
-              src: publicUrl,
-              alt: file.name.replace(/\.[^/.]+$/, ""), // Remove extension for alt text
-              category: folder.name,
-              type: 'file' // Marking as file
-            };
-
-            galleryItems.push(fileEntry);
-          }
-
-          // Add the album to the list
-          albums.push({
-            name: folder.name,
-            items: galleryItems
-          });
-        }
+      // Add root gallery files as a separate album if there are any
+      if (directGalleryItems.length > 0) {
+        albums.unshift({ // Add to the beginning of the array
+          name: 'Gallery',
+          items: directGalleryItems
+        });
       }
     }
 
