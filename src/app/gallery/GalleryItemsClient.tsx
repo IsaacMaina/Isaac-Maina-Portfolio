@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion } from "framer-motion";
 import SupabaseImage from "@/components/SupabaseImage";
 import AnimatedSection from "@/components/AnimatedSection";
+import ScrollAnimatedElement from "@/components/ScrollAnimatedElement";
 
 // Define the gallery item structure based on the database schema
 interface GalleryItem {
@@ -60,8 +61,13 @@ export default function GalleryItemsClient({ galleryAlbums, activeCategory = 'Al
             </h2>
 
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-6">
-              {itemsToShow.map((item) => (
-                <div key={item.id} className="mb-6 break-inside-avoid">
+              {itemsToShow.map((item, index) => (
+                <ScrollAnimatedElement
+                  key={item.id}
+                  variant="slideUp"
+                  delay={index * 0.1}
+                  className="mb-6 break-inside-avoid"
+                >
                   <motion.div
                     className="rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300"
                     whileHover={{ y: -8, scale: 1.02 }}
@@ -71,11 +77,11 @@ export default function GalleryItemsClient({ galleryAlbums, activeCategory = 'Al
                       <SupabaseImage
                         filePath={item.src}
                         alt={item.alt || `Gallery item ${item.id}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                       />
                     </div>
                   </motion.div>
-                </div>
+                </ScrollAnimatedElement>
               ))}
             </div>
 
@@ -118,18 +124,23 @@ export default function GalleryItemsClient({ galleryAlbums, activeCategory = 'Al
               if (!firstItem) return null;
 
               return (
-                <motion.div
+                <ScrollAnimatedElement
                   key={`featured-${album.name}`}
-                  className="rounded-xl overflow-hidden shadow-lg aspect-square hover:shadow-2xl transition-shadow duration-300 relative"
-                  whileHover={{ scale: 1.05, rotate: 1 }}
-                  transition={{ duration: 0.3 }}
+                  variant="scaleIn"
+                  delay={index * 0.1}
                 >
-                  <SupabaseImage
-                    filePath={firstItem.src}
-                    alt={firstItem.alt || `Featured in ${album.name}`}
-                    className="w-full h-full object-cover"
-                  />
-                </motion.div>
+                  <motion.div
+                    className="rounded-xl overflow-hidden shadow-lg aspect-square hover:shadow-2xl transition-shadow duration-300 relative"
+                    whileHover={{ scale: 1.05, rotate: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <SupabaseImage
+                      filePath={firstItem.src}
+                      alt={firstItem.alt || `Featured in ${album.name}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                </ScrollAnimatedElement>
               );
             })}
           </div>

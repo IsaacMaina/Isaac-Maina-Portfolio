@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import AnimatedSection from "@/components/AnimatedSection";
 import SupabaseImage from "@/components/SupabaseImage";
 import { useState } from "react";
+import ScrollAnimatedElement from "@/components/ScrollAnimatedElement";
 
 interface ProjectItem {
   id: number;
@@ -33,12 +34,12 @@ export default function ProjectsContentClient({
         <div className="mb-12">
           {" "}
           {/* Container with margin for consistent spacing */}
-          <AnimatedSection
+          <ScrollAnimatedElement
             className="text-4xl font-bold text-center"
-            animationType="fade"
+            variant="zoomIn"
           >
             My <span className="text-accent-cyan">Projects</span>
-          </AnimatedSection>
+          </ScrollAnimatedElement>
         </div>
 
         {projects.length === 0 ? (
@@ -50,9 +51,9 @@ export default function ProjectsContentClient({
         ) : (
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {projects.map((project, index) => (
-              <AnimatedSection
+              <ScrollAnimatedElement
                 key={project.id}
-                animationType="slide-up"
+                variant="slideUp"
                 delay={index * 0.1}
                 className="bg-slate-800 rounded-2xl hover:shadow-xl transition-all duration-300 border border-slate-700"
               >
@@ -95,7 +96,7 @@ export default function ProjectsContentClient({
                     ))}
                   </div>
                 </motion.div>
-              </AnimatedSection>
+              </ScrollAnimatedElement>
             ))}
           </div>
         )}

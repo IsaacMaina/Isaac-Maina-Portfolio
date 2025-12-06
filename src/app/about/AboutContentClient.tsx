@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import AnimatedSection from "@/components/AnimatedSection";
 import SupabaseImage from "@/components/SupabaseImage";
 import { useState } from "react";
+import ScrollAnimatedElement from "@/components/ScrollAnimatedElement";
 
 interface AboutContentProps {
   aboutData: {
@@ -52,18 +53,18 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
   return (
     <div className="min-h-screen bg-slate-900 text-white py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <AnimatedSection
+        <ScrollAnimatedElement
           className="text-4xl font-bold mb-12 text-center"
-          animationType="fade"
+          variant="zoomIn"
         >
           About <span className="text-accent-cyan">Me</span>
-        </AnimatedSection>
+        </ScrollAnimatedElement>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Profile Info Card */}
-          <AnimatedSection
+          <ScrollAnimatedElement
             className="lg:col-span-1"
-            animationType="slide-right"
+            variant="slideRight"
             delay={0.1}
           >
             <motion.div
@@ -101,118 +102,136 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
                 </div>
               </div>
             </motion.div>
-          </AnimatedSection>
+          </ScrollAnimatedElement>
 
           {/* Biography and Experience */}
-          <AnimatedSection
+          <ScrollAnimatedElement
             className="lg:col-span-2 space-y-12"
-            animationType="slide-left"
+            variant="slideLeft"
             delay={0.1}
           >
             {/* Biography */}
-            <AnimatedSection animationType="slide-up" delay={0.2}>
+            <ScrollAnimatedElement variant="slideUp" delay={0.2}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Biography</h2>
               <p className="text-slate-300 leading-relaxed">
                 {profile.about}
               </p>
-            </AnimatedSection>
+            </ScrollAnimatedElement>
 
             {/* Education */}
-            <AnimatedSection animationType="slide-up" delay={0.3}>
+            <ScrollAnimatedElement variant="slideUp" delay={0.3}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Education</h2>
               <div className="space-y-4">
-                {education.map((edu) => (
-                  <motion.div
+                {education.map((edu, index) => (
+                  <ScrollAnimatedElement
                     key={edu.id}
-                    className="border-l-4 border-accent-cyan pl-4 py-1 hover:border-accent-cyan/80 transition-colors duration-300"
-                    whileHover={{ x: 5 }}
-                    transition={{ duration: 0.2 }}
+                    variant="slideUp"
+                    delay={0.4 + index * 0.05}
+                    as="div"
                   >
-                    <h3 className="text-xl font-semibold">{edu.degree}</h3>
-                    <p className="text-slate-400">{edu.school} - {edu.period}</p>
-                    <p className="mt-2 text-slate-300">{edu.description}</p>
-                  </motion.div>
+                    <motion.div
+                      className="border-l-4 border-accent-cyan pl-4 py-1 hover:border-accent-cyan/80 transition-colors duration-300"
+                      whileHover={{ x: 5 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <h3 className="text-xl font-semibold">{edu.degree}</h3>
+                      <p className="text-slate-400">{edu.school} - {edu.period}</p>
+                      <p className="mt-2 text-slate-300">{edu.description}</p>
+                    </motion.div>
+                  </ScrollAnimatedElement>
                 ))}
               </div>
-            </AnimatedSection>
+            </ScrollAnimatedElement>
 
             {/* Experience Timeline */}
-            <AnimatedSection animationType="slide-up" delay={0.4}>
+            <ScrollAnimatedElement variant="slideUp" delay={0.4}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Experience</h2>
               <div className="relative space-y-8">
                 {/* Timeline line */}
                 <div className="absolute left-4 top-0 h-full w-0.5 bg-slate-700 transform -translate-x-1/2"></div>
 
-                {experiences.map((exp) => (
-                  <motion.div
+                {experiences.map((exp, index) => (
+                  <ScrollAnimatedElement
                     key={exp.id}
-                    className="relative pl-12"
-                    whileHover={{ scale: 1.02 }}
-                    transition={{ duration: 0.2 }}
+                    variant="slideUp"
+                    delay={0.5 + index * 0.05}
+                    as="div"
                   >
-                    <div className="absolute left-0 top-2 w-8 h-8 rounded-full bg-accent-cyan flex items-center justify-center transform -translate-x-1/2">
-                      <div className="w-3 h-3 rounded-full bg-slate-900"></div>
-                    </div>
-                    <h3 className="text-xl font-semibold">{exp.title}</h3>
-                    <p className="text-slate-400">{exp.company} - {exp.period}</p>
-                    <p className="mt-2 text-slate-300">
-                      {exp.description}
-                    </p>
-                  </motion.div>
+                    <motion.div
+                      className="relative pl-12"
+                      whileHover={{ scale: 1.02 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="absolute left-0 top-2 w-8 h-8 rounded-full bg-accent-cyan flex items-center justify-center transform -translate-x-1/2">
+                        <div className="w-3 h-3 rounded-full bg-slate-900"></div>
+                      </div>
+                      <h3 className="text-xl font-semibold">{exp.title}</h3>
+                      <p className="text-slate-400">{exp.company} - {exp.period}</p>
+                      <p className="mt-2 text-slate-300">
+                        {exp.description}
+                      </p>
+                    </motion.div>
+                  </ScrollAnimatedElement>
                 ))}
               </div>
-            </AnimatedSection>
+            </ScrollAnimatedElement>
 
             {/* Certifications */}
-            <AnimatedSection animationType="slide-up" delay={0.5}>
+            <ScrollAnimatedElement variant="slideUp" delay={0.5}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Certifications</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {certifications.map((cert) => (
-                  <motion.div
+                {certifications.map((cert, index) => (
+                  <ScrollAnimatedElement
                     key={cert.id}
-                    className="p-4 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors duration-300 hover:shadow-lg"
-                    whileHover={{ y: -5 }}
-                    transition={{ duration: 0.3 }}
+                    variant="slideUp"
+                    delay={0.6 + index * 0.05}
+                    as="div"
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{cert.title}</h3>
-                        <p className="text-slate-400 text-sm">{cert.description}</p>
-                      </div>
-                      {cert.file && (
-                        <div className="flex space-x-2 ml-2">
-                          <a
-                            href={cert.file}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-accent-cyan hover:text-cyan-400 flex items-center text-sm"
-                            title="View certificate"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            View
-                          </a>
-                          <a
-                            href={cert.file}
-                            download={cert.title}
-                            className="text-slate-300 hover:text-white flex items-center text-sm ml-2"
-                            title="Download certificate"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            Download
-                          </a>
+                    <motion.div
+                      className="p-4 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors duration-300 hover:shadow-lg"
+                      whileHover={{ y: -5 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{cert.title}</h3>
+                          <p className="text-slate-400 text-sm">{cert.description}</p>
                         </div>
-                      )}
-                    </div>
-                  </motion.div>
+                        {cert.file && (
+                          <div className="flex space-x-2 ml-2">
+                            <a
+                              href={cert.file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-accent-cyan hover:text-cyan-400 flex items-center text-sm"
+                              title="View certificate"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              View
+                            </a>
+                            <a
+                              href={cert.file}
+                              download={cert.title}
+                              className="text-slate-300 hover:text-white flex items-center text-sm ml-2"
+                              title="Download certificate"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              Download
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </ScrollAnimatedElement>
                 ))}
               </div>
-            </AnimatedSection>
-          </AnimatedSection>
+            </ScrollAnimatedElement>
+          </ScrollAnimatedElement>
         </div>
       </div>
     </div>

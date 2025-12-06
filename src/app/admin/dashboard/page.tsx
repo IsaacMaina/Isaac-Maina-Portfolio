@@ -19,16 +19,27 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const aboutFileInputRef = useRef<HTMLInputElement>(null);
+
   const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       // Check if there's a saved active tab in localStorage
-      const savedTab = localStorage.getItem('adminActiveTab');
+      const savedTab = localStorage.getItem("adminActiveTab");
       // Only return saved tab if it's valid, otherwise default to 'home'
-      return savedTab && ['home', 'about', 'skills', 'projects', 'gallery', 'documents', 'images'].includes(savedTab)
+      return savedTab &&
+        [
+          "home",
+          "about",
+          "skills",
+          "projects",
+          "gallery",
+          "documents",
+          "images",
+          "users",
+        ].includes(savedTab)
         ? savedTab
-        : 'home';
+        : "home";
     }
-    return 'home'; // Default to home on initial load
+    return "home"; // Default to home on initial load
   });
   const [homeData, setHomeData] = useState({
     name: "",
@@ -48,261 +59,7 @@ export default function AdminDashboardPage() {
   // State to hold categories from Supabase storage
   const [categories, setCategories] = useState<string[]>([]);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch("/api/admin/categories");
-      if (!response.ok) {
-        throw new Error("Failed to fetch categories");
-      }
-      const fetchedCategories: string[] = await response.json();
-      setCategories(fetchedCategories);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      // On error, use an empty array - this shouldn't affect other functionality
-      setCategories([]);
-    }
-  };
-
-  const fetchHomeData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/admin/home");
-
-      if (!response.ok) {
-        if (response.status === 0) {
-          // Network error (no connection)
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          // Server error
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-        }
-        throw new Error("Failed to fetch home data");
-      }
-
-      const data = await response.json();
-      setHomeData(data);
-    } catch (error) {
-      console.error("Error fetching home data:", error);
-      if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to load home data");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchGalleryData = async () => {
-    try {
-      const response = await fetch("/api/admin/gallery");
-
-      if (!response.ok) {
-        if (response.status === 0) {
-          // Network error (no connection)
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          // Server error
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-        }
-        throw new Error("Failed to fetch gallery data");
-      }
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        setGalleryData(data);
-      }
-    } catch (error) {
-      console.error("Error fetching gallery data:", error);
-      if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to load gallery data");
-      }
-    }
-  };
-
-  const fetchAboutData = async () => {
-    try {
-      const response = await fetch("/api/admin/about");
-
-      if (!response.ok) {
-        if (response.status === 0) {
-          // Network error (no connection)
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          // Server error
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-        }
-        throw new Error("Failed to fetch about data");
-      }
-
-      let data = await response.json();
-
-      // Ensure all certification IDs are unique to prevent React key collisions
-      if (data.certifications && Array.isArray(data.certifications)) {
-        const uniqueCerts = data.certifications.map((cert, index) => ({
-          ...cert,
-          // Use a unique ID by combining the original ID with index position to avoid duplicates
-          id: cert.id ? cert.id * 1000000 + index : Date.now() + index, // If no ID exists, use timestamp + index
-        }));
-
-        data = {
-          ...data,
-          certifications: uniqueCerts,
-        };
-      }
-
-      setAboutData(data);
-    } catch (error) {
-      console.error("Error fetching about data:", error);
-      if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to load about data");
-      }
-    }
-  };
-
-  const fetchDocumentsData = async () => {
-    try {
-      const response = await fetch("/api/admin/documents");
-
-      if (!response.ok) {
-        if (response.status === 0) {
-          // Network error (no connection)
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          // Server error
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-        }
-        throw new Error("Failed to fetch documents data");
-      }
-
-      const data = await response.json();
-      if (data && data.length > 0) {
-        setDocumentsData(data);
-      }
-    } catch (error) {
-      console.error("Error fetching documents data:", error);
-      if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to load documents data");
-      }
-    }
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!session?.user?.id) {
-      toast.error("User not authenticated");
-      return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const result = await uploadImageToSupabase(file, "profile-images", "");
-
-      if (result.success && result.url) {
-        // Extract the path from the full URL so it can be properly reconstructed by the SupabaseImage component
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        if (supabaseUrl && result.url.startsWith(supabaseUrl)) {
-          // Extract the path after the supabase URL
-          const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
-          const imagePath = result.url.replace(pathStart, "");
-          setHomeData((prev) => ({ ...prev, image: imagePath }));
-        } else {
-          // If the URL doesn't start with our SUPABASE_URL, it might already be a path
-          setHomeData((prev) => ({ ...prev, image: result.url }));
-        }
-        toast.success("Image uploaded successfully!");
-      } else {
-        toast.error(result.error || "Failed to upload image");
-      }
-    } catch (error) {
-      console.error("Upload error:", error);
-      if (error.message && error.message.includes("Network")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message && error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to upload image");
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const triggerFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const triggerAboutFileSelect = () => {
-    aboutFileInputRef.current?.click();
-  };
-
-  // No need for separate delete function since deletion is handled in the PUT API routes
-
-  const handleAboutImageUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    if (!session?.user?.id) {
-      toast.error("User not authenticated");
-      return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const result = await uploadImageToSupabase(file, "profile-images", "");
-
-      if (result.success && result.url) {
-        // Extract the path from the full URL so it can be properly reconstructed by the SupabaseImage component
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        if (supabaseUrl && result.url.startsWith(supabaseUrl)) {
-          // Extract the path after the supabase URL
-          const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
-          const imagePath = result.url.replace(pathStart, "");
-          setAboutData((prev) => ({ ...prev, image: imagePath }));
-        } else {
-          // If the URL doesn't start with our SUPABASE_URL, it might already be a path
-          setAboutData((prev) => ({ ...prev, image: result.url }));
-        }
-        toast.success("Profile image uploaded successfully!");
-      } else {
-        toast.error(result.error || "Failed to upload image");
-      }
-    } catch (error) {
-      console.error("About image upload error:", error);
-      if (error.message && error.message.includes("Network")) {
-        toast.error("No internet connection. Please check your network and try again.");
-      } else if (error.message && error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to upload image");
-      }
-    } finally {
-      setUploading(false);
-    }
-  };
-
+  // State for data management sections
   const [aboutData, setAboutData] = useState({
     name: "",
     title: "",
@@ -404,37 +161,168 @@ export default function AdminDashboardPage() {
       category?: string;
     }>
   );
-  // Main effect for data fetching and authentication handling
-  useEffect(() => {
-    if (status === "loading") return; // Do nothing while loading
 
-    if (!session) {
-      // If no session, redirect to sign in
-      router.push("/auth/signin");
-    } else if (status === "authenticated") {
-      // Always fetch categories
-      fetchCategories();
+  // User management state
+  const [users, setUsers] = useState<Array<{
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+  }>>([]);
+  const [selectedUser, setSelectedUser] = useState<{
+    id: number;
+    name?: string;
+    email: string;
+    password: string;
+    role: string;
+  } | null>(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  // Helper function to update active tab in state and localStorage
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminActiveTab", tab);
     }
-  }, [session, status, router]);
+  };
 
-  // Effect for fetching data when active tab changes
-  useEffect(() => {
-    if (status === "authenticated" && session) {
-      if (activeTab === "home") {
-        fetchHomeData();
-      } else if (activeTab === "about") {
-        fetchAboutData();
-      } else if (activeTab === "gallery") {
-        fetchGalleryData();
-      } else if (activeTab === "skills") {
-        fetchSkillsData();
-      } else if (activeTab === "projects") {
-        fetchProjectsData();
-      } else if (activeTab === "documents") {
-        fetchDocumentsData();
+  // --- API FETCH FUNCTIONS ---
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/admin/categories");
+      if (!response.ok) {
+        throw new Error("Failed to fetch categories");
+      }
+      const fetchedCategories: string[] = await response.json();
+      setCategories(fetchedCategories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      setCategories([]);
+    }
+  };
+
+  const fetchHomeData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/admin/home");
+
+      if (!response.ok) {
+        if (response.status === 0) {
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          const errorText = await response.text();
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
+        }
+        throw new Error("Failed to fetch home data");
+      }
+
+      const data = await response.json();
+      setHomeData(data);
+    } catch (error) {
+      console.error("Error fetching home data:", error);
+      if (error.message.includes("Network error")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to load home data");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGalleryData = async () => {
+    try {
+      const response = await fetch("/api/admin/gallery");
+
+      if (!response.ok) {
+        if (response.status === 0) {
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          const errorText = await response.text();
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
+        }
+        throw new Error("Failed to fetch gallery data");
+      }
+
+      const data = await response.json();
+      if (data && data.length > 0) {
+        setGalleryData(data);
+      }
+    } catch (error) {
+      console.error("Error fetching gallery data:", error);
+      if (error.message.includes("Network error")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to load gallery data");
       }
     }
-  }, [activeTab, status, session]);
+  };
+
+  const fetchAboutData = async () => {
+    try {
+      const response = await fetch("/api/admin/about");
+
+      if (!response.ok) {
+        if (response.status === 0) {
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          const errorText = await response.text();
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
+        }
+        throw new Error("Failed to fetch about data");
+      }
+
+      let data = await response.json();
+
+      // Ensure all certification IDs are unique to prevent React key collisions
+      if (data.certifications && Array.isArray(data.certifications)) {
+        const uniqueCerts = data.certifications.map((cert, index) => ({
+          ...cert,
+          // Use a unique ID by combining the original ID with index position to avoid duplicates
+          id: cert.id ? cert.id * 1000000 + index : Date.now() + index, // If no ID exists, use timestamp + index
+        }));
+
+        data = {
+          ...data,
+          certifications: uniqueCerts,
+        };
+      }
+
+      setAboutData(data);
+    } catch (error) {
+      console.error("Error fetching about data:", error);
+      if (error.message.includes("Network error")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to load about data");
+      }
+    }
+  };
 
   const fetchProjectsData = async () => {
     try {
@@ -442,12 +330,14 @@ export default function AdminDashboardPage() {
 
       if (!response.ok) {
         if (response.status === 0) {
-          // Network error (no connection)
           throw new Error("Network error: Unable to connect to the server");
         } else if (response.status >= 500) {
-          // Server error
           const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
         }
         throw new Error("Failed to fetch projects data");
       }
@@ -459,7 +349,9 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error("Error fetching projects data:", error);
       if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
       } else if (error.message.includes("Server error")) {
         toast.error(`Server error occurred: ${error.message}`);
       } else {
@@ -474,12 +366,14 @@ export default function AdminDashboardPage() {
 
       if (!response.ok) {
         if (response.status === 0) {
-          // Network error (no connection)
           throw new Error("Network error: Unable to connect to the server");
         } else if (response.status >= 500) {
-          // Server error
           const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
         }
         throw new Error("Failed to fetch skills data");
       }
@@ -491,7 +385,9 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error("Error fetching skills data:", error);
       if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
       } else if (error.message.includes("Server error")) {
         toast.error(`Server error occurred: ${error.message}`);
       } else {
@@ -500,178 +396,152 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Show loading state while checking auth
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center py-16">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-cyan mb-4"></div>
-          <p className="text-slate-400">Loading admin dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const fetchDocumentsData = async () => {
+    try {
+      const response = await fetch("/api/admin/documents");
 
-  // If user is not authenticated, don't render the page
-  if (!session) {
-    return null;
-  }
-
-  // Home tab functions
-  const handleHomeChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setHomeData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // About tab functions
-  const handleAboutChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setAboutData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  // Skills tab functions
-  const handleSkillCategoryChange = (
-    index: number,
-    field: string,
-    value: any
-  ) => {
-    const updatedCategories = [...skillsData.skillCategories];
-    updatedCategories[index] = { ...updatedCategories[index], [field]: value };
-    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
-  };
-
-  const handleSkillChange = (
-    categoryIndex: number,
-    skillIndex: number,
-    field: string,
-    value: any
-  ) => {
-    const updatedCategories = [...skillsData.skillCategories];
-    updatedCategories[categoryIndex].skills[skillIndex] = {
-      ...updatedCategories[categoryIndex].skills[skillIndex],
-      [field]: value,
-    };
-    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
-  };
-
-  const handleAddSkill = (categoryIndex: number) => {
-    const newSkill = {
-      name: "New Skill",
-      level: 50,
-    };
-    const updatedCategories = [...skillsData.skillCategories];
-    updatedCategories[categoryIndex].skills.push(newSkill);
-    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
-  };
-
-  const handleRemoveSkill = (categoryIndex: number, skillIndex: number) => {
-    const updatedCategories = [...skillsData.skillCategories];
-    updatedCategories[categoryIndex].skills = updatedCategories[
-      categoryIndex
-    ].skills.filter((_, i) => i !== skillIndex);
-    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
-  };
-
-  const handleAddSkillCategory = () => {
-    const newCategory = {
-      title: "New Category",
-      skills: [{ name: "New Skill", level: 50 }],
-    };
-    setSkillsData((prev) => ({
-      ...prev,
-      skillCategories: [...prev.skillCategories, newCategory],
-    }));
-  };
-
-  const handleRemoveSkillCategory = (index: number) => {
-    setSkillsData((prev) => ({
-      ...prev,
-      skillCategories: prev.skillCategories.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleAdditionalSkillsChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const skills = e.target.value
-      .split(",")
-      .map((skill) => skill.trim())
-      .filter((skill) => skill);
-    setSkillsData((prev) => ({ ...prev, additionalSkills: skills }));
-  };
-
-  // Projects tab functions
-  const handleProjectChange = (index: number, field: string, value: any) => {
-    const updatedProjects = [...projectsData];
-    updatedProjects[index] = { ...updatedProjects[index], [field]: value };
-    setProjectsData(updatedProjects);
-  };
-
-  const handleAddProject = () => {
-    // Calculate a unique ID that doesn't conflict with existing IDs
-    const maxExistingId = projectsData.length > 0
-      ? Math.max(...projectsData.map(p => p.id))
-      : 0;
-    const newId = maxExistingId + 1;
-
-    const newProject = {
-      id: newId,
-      title: "New Project",
-      description: "Description of the new project",
-      link: "https://example.com",
-      stack: [], // Initialize as an empty array
-      category: "Web Development",
-    };
-    // Add new project to the beginning of the array (prepend instead of append)
-    setProjectsData([newProject, ...projectsData]);
-  };
-
-  const handleRemoveProject = async (index: number) => {
-    const projectToRemove = projectsData[index];
-    if (confirm(`Are you sure you want to delete the project "${projectToRemove.title}"?`)) {
-      try {
-        const response = await fetch('/api/admin/projects', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ id: projectToRemove.id }),
-        });
-
-        if (!response.ok) {
-          if (response.status === 0) {
-            // Network error (no connection)
-            throw new Error("Network error: Unable to connect to the server");
-          } else if (response.status >= 500) {
-            // Server error
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-          }
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to delete project from database');
+      if (!response.ok) {
+        if (response.status === 0) {
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          const errorText = await response.text();
+          throw new Error(
+            `Server error: ${response.status} - ${
+              errorText || "Internal server error"
+            }`
+          );
         }
+        throw new Error("Failed to fetch documents data");
+      }
 
-        // Remove from the local state
-        setProjectsData(projectsData.filter((_, i) => i !== index));
-        toast.success('Project deleted successfully!');
-      } catch (error) {
-        console.error('Error deleting project:', error);
-        if (error.message.includes("Network error")) {
-          toast.error("No internet connection. Please check your network and try again.");
-        } else if (error.message.includes("Server error")) {
-          toast.error(`Server error occurred: ${error.message}`);
-        } else {
-          toast.error('Failed to delete project from database');
-        }
+      const data = await response.json();
+      if (data && data.length > 0) {
+        setDocumentsData(data);
+      }
+    } catch (error) {
+      console.error("Error fetching documents data:", error);
+      if (error.message.includes("Network error")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to load documents data");
       }
     }
   };
 
-  // Gallery tab functions
+
+  // --- UPLOAD HANDLERS ---
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!session?.user?.id) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await uploadImageToSupabase(file, "profile-images", "");
+
+      if (result.success && result.url) {
+        // Extract the path from the full URL so it can be properly reconstructed by the SupabaseImage component
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (supabaseUrl && result.url.startsWith(supabaseUrl)) {
+          // Extract the path after the supabase URL
+          const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
+          const imagePath = result.url.replace(pathStart, "");
+          setHomeData((prev) => ({ ...prev, image: imagePath }));
+        } else {
+          // If the URL doesn't start with our SUPABASE_URL, it might already be a path
+          setHomeData((prev) => ({ ...prev, image: result.url }));
+        }
+        toast.success("Image uploaded successfully!");
+      } else {
+        toast.error(result.error || "Failed to upload image");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      if (error instanceof Error && error.message.includes("Network")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (
+        error instanceof Error &&
+        error.message.includes("Server error")
+      ) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to upload image");
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAboutImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    if (!session?.user?.id) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await uploadImageToSupabase(file, "profile-images", "");
+
+      if (result.success && result.url) {
+        // Extract the path from the full URL so it can be properly reconstructed by the SupabaseImage component
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (supabaseUrl && result.url.startsWith(supabaseUrl)) {
+          // Extract the path after the supabase URL
+          const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
+          const imagePath = result.url.replace(pathStart, "");
+          setAboutData((prev) => ({ ...prev, image: imagePath }));
+        } else {
+          // If the URL doesn't start with our SUPABASE_URL, it might already be a path
+          setAboutData((prev) => ({ ...prev, image: result.url }));
+        }
+        toast.success("Profile image uploaded successfully!");
+      } else {
+        toast.error(result.error || "Failed to upload image");
+      }
+    } catch (error) {
+      console.error("About image upload error:", error);
+      if (error instanceof Error && error.message.includes("Network")) {
+        toast.error(
+          "No internet connection. Please check your network and try again."
+        );
+      } else if (
+        error instanceof Error &&
+        error.message.includes("Server error")
+      ) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to upload image");
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const triggerAboutFileSelect = () => {
+    aboutFileInputRef.current?.click();
+  };
+
+  // --- GALLERY TAB FUNCTIONS ---
   const handleGalleryChange = (index: number, field: string, value: string) => {
     const updatedGallery = [...galleryData];
     updatedGallery[index] = { ...updatedGallery[index], [field]: value };
@@ -721,42 +591,13 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error("Error deleting gallery item:", error);
       if (error.message.includes("Network error")) {
-        toast.error("No internet connection. Please check your network and try again.");
+        toast.error("No internet ...");
       } else if (error.message.includes("Server error")) {
         toast.error(`Server error occurred: ${error.message}`);
       } else {
         toast.error("Failed to delete gallery item");
       }
     }
-  };
-
-  // Function to get unique categories (combines existing gallery items, documents and fetched categories from storage)
-  const getUniqueCategories = () => {
-    // Get categories from current gallery items
-    const galleryItemCategories = new Set(
-      galleryData.map((item) => item.category)
-    );
-    // Remove empty/undefined gallery categories
-    galleryItemCategories.delete("");
-    galleryItemCategories.delete(undefined as any);
-    galleryItemCategories.delete(null as any);
-
-    // Get categories from current documents
-    const documentItemCategories = new Set(
-      documentsData.map((item) => item.category)
-    );
-    // Remove empty/undefined document categories
-    documentItemCategories.delete("");
-    documentItemCategories.delete(undefined as any);
-    documentItemCategories.delete(null as any);
-
-    // Combine all categories
-    const combinedCategories = new Set([
-      ...galleryItemCategories,
-      ...documentItemCategories,
-      ...categories,
-    ]);
-    return Array.from(combinedCategories).sort();
   };
 
   const handleGalleryImageUpload = async (
@@ -873,7 +714,36 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Documents tab functions
+  // Function to get unique categories (combines existing gallery items, documents and fetched categories from storage)
+  const getUniqueCategories = () => {
+    // Get categories from current gallery items
+    const galleryItemCategories = new Set(
+      galleryData.map((item) => item.category)
+    );
+    // Remove empty/undefined gallery categories
+    galleryItemCategories.delete("");
+    galleryItemCategories.delete(undefined as any);
+    galleryItemCategories.delete(null as any);
+
+    // Get categories from current documents
+    const documentItemCategories = new Set(
+      documentsData.map((item) => item.category)
+    );
+    // Remove empty/undefined document categories
+    documentItemCategories.delete("");
+    documentItemCategories.delete(undefined as any);
+    documentItemCategories.delete(null as any);
+
+    // Combine all categories
+    const combinedCategories = new Set([
+      ...galleryItemCategories,
+      ...documentItemCategories,
+      ...categories,
+    ]);
+    return Array.from(combinedCategories).sort();
+  };
+
+  // --- DOCUMENTS TAB FUNCTIONS ---
   const handleCertificateChange = (
     index: number,
     field: string,
@@ -979,6 +849,129 @@ export default function AdminDashboardPage() {
     setDocumentsData((prevDocuments) =>
       prevDocuments.filter((_, i) => i !== index)
     );
+  };
+
+
+  // Function to handle user update (email and password)
+  const handleUserUpdate = async () => {
+    if (!selectedUser) {
+      toast.error("No user selected for update");
+      return;
+    }
+
+    // Validate that the ID is a valid number
+    const userId = Number(selectedUser.id);
+    if (isNaN(userId) || userId <= 0) {
+      toast.error("Invalid user ID");
+      console.error("Invalid user ID:", selectedUser.id);
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Prepare the payload - only send changed values
+      const payload: { email?: string; password?: string; role?: string } = {};
+      if (selectedUser.email) payload.email = selectedUser.email;
+      if (selectedUser.password) payload.password = selectedUser.password; // Password will be hashed on the server
+      if (selectedUser.role) payload.role = selectedUser.role;
+
+      const response = await fetch(`/api/admin/users?id=${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        if (response.status === 0) {
+          // Network error (no connection)
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          // Server error
+          const errorText = await response.text();
+          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update user");
+      }
+
+      toast.success("User updated successfully!");
+
+      // Refresh the users list
+      await fetchUsersData();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      if (error.message.includes("Network error")) {
+        toast.error("No internet connection. Please check your network and try again.");
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to update user");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Function to handle user selection for editing
+  const handleSelectUser = (user: { id: number; name: string; email: string; role: string }) => {
+    setSelectedUser({
+      id: Number(user.id), // Ensure ID is a number
+      name: user.name,
+      email: user.email,
+      password: "", // Don't include existing password for security
+      role: user.role,
+    });
+  };
+
+  // Account image upload function
+  const handleAccountImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!session?.user?.id) {
+      toast.error("User not authenticated");
+      return;
+    }
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const result = await uploadImageToSupabase(file, "profile-images", "");
+
+      if (result.success && result.url) {
+        // Extract the path from the full URL so it can be properly reconstructed by the SupabaseImage component
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (supabaseUrl && result.url.startsWith(supabaseUrl)) {
+          // Extract the path after the supabase URL
+          const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
+          const imagePath = result.url.replace(pathStart, "");
+          setAccountData(prev => ({ ...prev, image: imagePath }));
+        } else {
+          // If the URL doesn't start with our SUPABASE_URL, it might already be a path
+          setAccountData(prev => ({ ...prev, image: result.url }));
+        }
+        toast.success("Profile image uploaded successfully!");
+      } else {
+        toast.error(result.error || "Failed to upload image");
+      }
+    } catch (error) {
+      console.error("Account image upload error:", error);
+      if (error instanceof Error && error.message.includes("Network")) {
+        toast.error("No internet connection. Please check your network and try again.");
+      } else if (error instanceof Error && error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to upload image");
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const triggerAccountFileSelect = () => {
+    fileInputRef.current?.click();
   };
 
   // Document upload function
@@ -1101,9 +1094,144 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // --- LIFE CYCLE HOOKS ---
+
+  // Main effect for data fetching and authentication handling
+
+  const fetchUsersData = async () => {
+    try {
+      setUsersLoading(true);
+      const response = await fetch("/api/admin/users");
+
+      if (!response.ok) {
+        if (response.status === 0) {
+          // Network error (no connection)
+          throw new Error("Network error: Unable to connect to the server");
+        } else if (response.status >= 500) {
+          // Server error
+          const errorText = await response.text();
+          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
+        }
+        throw new Error("Failed to fetch users data");
+      }
+
+      const data = await response.json();
+      if (data && Array.isArray(data)) {
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error("Error fetching users data:", error);
+      if (error.message.includes("Network error")) {
+        toast.error("No internet connection. Please check your network and try again.");
+      } else if (error.message.includes("Server error")) {
+        toast.error(`Server error occurred: ${error.message}`);
+      } else {
+        toast.error("Failed to load users data");
+      }
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (status === "loading") return; // Do nothing while loading
+
+    if (!session) {
+      // If no session, redirect to sign in
+      router.push("/auth/signin");
+    } else if (status === "authenticated") {
+      // Always fetch categories
+      fetchCategories();
+    }
+  }, [session, status, router]);
+
+  // Effect for fetching data when active tab changes
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      if (activeTab === "home") {
+        fetchHomeData();
+      } else if (activeTab === "about") {
+        fetchAboutData();
+      } else if (activeTab === "gallery") {
+        fetchGalleryData();
+      } else if (activeTab === "skills") {
+        fetchSkillsData();
+      } else if (activeTab === "projects") {
+        fetchProjectsData();
+      } else if (activeTab === "documents") {
+        fetchDocumentsData();
+      } else if (activeTab === "users") {
+        fetchUsersData();
+      }
+    }
+  }, [activeTab, status, session]);
+
+  // --- DATA CHANGE HANDLERS (CRUD helpers) ---
+
+  // Home tab functions
+  const handleHomeChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setHomeData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // About tab functions
+  const handleAboutChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setAboutData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Skills tab functions
+  const handleSkillCategoryChange = (
+    index: number,
+    field: string,
+    value: any
+  ) => {
+    const updatedCategories = [...skillsData.skillCategories];
+    updatedCategories[index] = { ...updatedCategories[index], [field]: value };
+    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
+  };
+
+  const handleSkillChange = (
+    categoryIndex: number,
+    skillIndex: number,
+    field: string,
+    value: any
+  ) => {
+    const updatedCategories = [...skillsData.skillCategories];
+    updatedCategories[categoryIndex].skills[skillIndex] = {
+      ...updatedCategories[categoryIndex].skills[skillIndex],
+      [field]: value,
+    };
+    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
+  };
+
+  const handleAddSkill = (categoryIndex: number) => {
+    const newSkill = {
+      name: "New Skill",
+      level: 50,
+    };
+    const updatedCategories = [...skillsData.skillCategories];
+    updatedCategories[categoryIndex].skills.push(newSkill);
+    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
+  };
+
+  const handleRemoveSkill = (categoryIndex: number, skillIndex: number) => {
+    const updatedCategories = [...skillsData.skillCategories];
+    updatedCategories[categoryIndex].skills = updatedCategories[
+      categoryIndex
+    ].skills.filter((_, i) => i !== skillIndex);
+    setSkillsData((prev) => ({ ...prev, skillCategories: updatedCategories }));
+  };
+
+  // Main save handler that saves data based on the active tab
   const handleSave = async () => {
     try {
       setSaving(true);
+
       if (activeTab === "home") {
         // Save home data
         const response = await fetch("/api/admin/home", {
@@ -1139,10 +1267,8 @@ export default function AdminDashboardPage() {
 
         if (!response.ok) {
           if (response.status === 0) {
-            // Network error (no connection)
             throw new Error("Network error: Unable to connect to the server");
           } else if (response.status >= 500) {
-            // Server error
             const errorText = await response.text();
             throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
           }
@@ -1151,29 +1277,6 @@ export default function AdminDashboardPage() {
         }
 
         toast.success("About page data updated successfully!");
-      } else if (activeTab === "gallery") {
-        // Save gallery data
-        const response = await fetch("/api/admin/gallery", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(galleryData),
-        });
-
-        if (!response.ok) {
-          if (response.status === 0) {
-            // Network error (no connection)
-            throw new Error("Network error: Unable to connect to the server");
-          } else if (response.status >= 500) {
-            // Server error
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-          }
-          throw new Error("Failed to save gallery data");
-        }
-
-        toast.success("Gallery data updated successfully!");
       } else if (activeTab === "skills") {
         // Save skills data
         const response = await fetch("/api/admin/skills", {
@@ -1186,10 +1289,8 @@ export default function AdminDashboardPage() {
 
         if (!response.ok) {
           if (response.status === 0) {
-            // Network error (no connection)
             throw new Error("Network error: Unable to connect to the server");
           } else if (response.status >= 500) {
-            // Server error
             const errorText = await response.text();
             throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
           }
@@ -1210,10 +1311,8 @@ export default function AdminDashboardPage() {
 
         if (!response.ok) {
           if (response.status === 0) {
-            // Network error (no connection)
             throw new Error("Network error: Unable to connect to the server");
           } else if (response.status >= 500) {
-            // Server error
             const errorText = await response.text();
             throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
           }
@@ -1222,49 +1321,54 @@ export default function AdminDashboardPage() {
         }
 
         toast.success("Projects data updated successfully!");
-      } else if (activeTab === "documents") {
-        // Save documents data
-        // Temporarily remove category field to avoid database mismatch until migration is run
-        const documentsDataToSend = documentsData.map((doc) => {
-          // Create a copy without the category field to prevent DB errors if column doesn't exist
-          const { category, ...docWithoutCategory } = doc;
-          return docWithoutCategory;
+      } else if (activeTab === "gallery") {
+        // Save gallery data
+        const response = await fetch("/api/admin/gallery", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(galleryData),
         });
 
+        if (!response.ok) {
+          if (response.status === 0) {
+            throw new Error("Network error: Unable to connect to the server");
+          } else if (response.status >= 500) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
+          }
+          throw new Error("Failed to save gallery data");
+        }
+
+        toast.success("Gallery data updated successfully!");
+      } else if (activeTab === "documents") {
+        // Save documents data
         const response = await fetch("/api/admin/documents", {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(documentsDataToSend),
+          body: JSON.stringify(documentsData),
         });
 
         if (!response.ok) {
           if (response.status === 0) {
-            // Network error (no connection)
             throw new Error("Network error: Unable to connect to the server");
           } else if (response.status >= 500) {
-            // Server error
             const errorText = await response.text();
-            console.error("Error response from server:", errorText);
             throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
           }
           const errorText = await response.text();
-          console.error("Error response from server:", errorText);
           throw new Error(`Failed to save documents data: ${errorText}`);
         }
 
         toast.success("Documents data updated successfully!");
-      } else if (activeTab === "images") {
-        // Images tab doesn't need saving since deletion happens individually
-        toast.success("Manage images using the delete buttons");
+      } else if (activeTab === "users") {
+        // Users tab save - call the specific user update handler
+        await handleUserUpdate();
       } else {
-        // For other tabs, display a message that they will be implemented
-        toast.success(
-          `${
-            activeTab.charAt(0).toUpperCase() + activeTab.slice(1)
-          } data would be updated (API route not yet implemented for this section)`
-        );
+        toast.error(`Saving is not implemented for the ${activeTab} tab`);
       }
     } catch (error) {
       console.error(`Error saving ${activeTab} data:`, error);
@@ -1280,10 +1384,129 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleLogout = async () => {
-    // Sign out using NextAuth
-    await signOut({ redirect: true, callbackUrl: "/auth/signin" });
+  const handleAddSkillCategory = () => {
+    const newCategory = {
+      title: "New Category",
+      skills: [{ name: "New Skill", level: 50 }],
+    };
+    setSkillsData((prev) => ({
+      ...prev,
+      skillCategories: [...prev.skillCategories, newCategory],
+    }));
   };
+
+  const handleRemoveSkillCategory = (index: number) => {
+    setSkillsData((prev) => ({
+      ...prev,
+      skillCategories: prev.skillCategories.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleAdditionalSkillsChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const skills = e.target.value
+      .split(",")
+      .map((skill) => skill.trim())
+      .filter((skill) => skill);
+    setSkillsData((prev) => ({ ...prev, additionalSkills: skills }));
+  };
+
+  // Projects tab functions
+  const handleProjectChange = (index: number, field: string, value: any) => {
+    const updatedProjects = [...projectsData];
+    updatedProjects[index] = { ...updatedProjects[index], [field]: value };
+    setProjectsData(updatedProjects);
+  };
+
+  const handleAddProject = () => {
+    // Calculate a unique ID that doesn't conflict with existing IDs
+    const maxExistingId =
+      projectsData.length > 0 ? Math.max(...projectsData.map((p) => p.id)) : 0;
+    const newId = maxExistingId + 1;
+
+    const newProject = {
+      id: newId,
+      title: "New Project",
+      description: "Description of the new project",
+      link: "https://example.com",
+      stack: [], // Initialize as an empty array
+      category: "Web Development",
+    };
+    // Add new project to the beginning of the array (prepend instead of append)
+    setProjectsData([newProject, ...projectsData]);
+  };
+
+  const handleRemoveProject = async (index: number) => {
+    const projectToRemove = projectsData[index];
+    if (
+      confirm(
+        `Are you sure you want to delete the project "${projectToRemove.title}"?`
+      )
+    ) {
+      try {
+        const response = await fetch("/api/admin/projects", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: projectToRemove.id }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 0) {
+            // Network error (no connection)
+            throw new Error("Network error: Unable to connect to the server");
+          } else if (response.status >= 500) {
+            // Server error
+            const errorText = await response.text();
+            throw new Error(
+              `Server error: ${response.status} - ${
+                errorText || "Internal server error"
+              }`
+            );
+          }
+          throw new Error("Failed to delete project");
+        }
+
+        toast.success(projectToRemove.title + " deleted successfully!");
+        setProjectsData((prev) => prev.filter((_, i) => i !== index));
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        if (error instanceof Error && error.message.includes("Network error")) {
+          toast.error(
+            "No internet connection. Please check your network and try again."
+          );
+        } else if (
+          error instanceof Error &&
+          error.message.includes("Server error")
+        ) {
+          toast.error(`Server error occurred: ${error.message}`);
+        } else {
+          toast.error("Failed to delete project");
+        }
+      }
+    }
+  };
+
+  // --- RENDERING ---
+
+  // Show loading state while checking auth
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center py-16">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-cyan mb-4"></div>
+          <p className="text-slate-400">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If user is not authenticated, don't render the page
+  if (!session) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white py-16">
@@ -1295,11 +1518,10 @@ export default function AdminDashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            Content <span className="text-accent-cyan">Management</span>{" "}
-            Dashboard
+            Content <span className="text-accent-cyan">Management</span> Dashboard
           </motion.div>
           <button
-            onClick={handleLogout}
+            onClick={() => signOut({ callbackUrl: "/auth/signin" })}
             className="btn btn-secondary px-4 py-2 rounded-lg"
           >
             Logout
@@ -1316,6 +1538,7 @@ export default function AdminDashboardPage() {
             "gallery",
             "documents",
             "images",
+            "users"
           ].map((tab) => (
             <button
               key={tab}
@@ -1334,6 +1557,8 @@ export default function AdminDashboardPage() {
             >
               {tab === "images"
                 ? "Media & Files"
+                : tab === "users"
+                ? "User Management"
                 : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
@@ -1472,7 +1697,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="file"
                     ref={fileInputRef}
-                    onChange={handleImageUpload}
+                    onChange={handleAccountImageUpload}
                     accept="image/*"
                     className="hidden"
                   />
@@ -2435,13 +2660,154 @@ export default function AdminDashboardPage() {
             transition={{ duration: 0.5 }}
             className="bg-slate-800 rounded-xl p-6 mb-8"
           >
-            <h2 className="text-2xl font-bold text-accent-cyan flex-1 mb-6">
-              Documents Management
-            </h2>
+            <div className="flex flex-wrap gap-4 mb-6">
+              <h2 className="text-2xl font-bold text-accent-cyan flex-1">
+                Documents Management
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleAddDocument}
+                  className="btn btn-primary px-4 py-2 rounded-lg"
+                >
+                  Add Document
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
 
-            <div className="bg-slate-700 p-6 rounded-lg shadow-md">
-              <h3 className="text-xl font-semibold mb-4 text-gray-200">Upload Documents</h3>
-              <DocumentManager />
+            <div className="space-y-6">
+              {documentsData.map((doc, index) => (
+                <div key={doc.id} className="bg-slate-700 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">
+                      Document #{doc.id}
+                    </h3>
+                    <button
+                      onClick={() => handleRemoveDocument(index)}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      Remove Document
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-slate-300 mb-2">Title</label>
+                      <input
+                        type="text"
+                        value={doc.title}
+                        onChange={(e) =>
+                          handleDocumentChange(index, "title", e.target.value)
+                        }
+                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-2">
+                        Category
+                      </label>
+                      <input
+                        type="text"
+                        value={doc.category || "documents"}
+                        onChange={(e) =>
+                          handleDocumentChange(
+                            index,
+                            "category",
+                            e.target.value
+                          )
+                        }
+                        list={`document-categories-list-${index}`}
+                        placeholder="Select or create category"
+                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                      />
+                      <datalist id={`document-categories-list-${index}`}>
+                        <option value="documents">Documents</option>
+                        <option value="certificates">Certificates</option>
+                        <option value="resumes">Resumes</option>
+                        <option value="reports">Reports</option>
+                        {getUniqueCategories().map((category) => (
+                          <option key={category} value={category}>
+                            {category.charAt(0).toUpperCase() +
+                              category.slice(1)}
+                          </option>
+                        ))}
+                      </datalist>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 mb-2">
+                        File URL
+                      </label>
+                      <input
+                        type="text"
+                        value={doc.file}
+                        onChange={(e) =>
+                          handleDocumentChange(index, "file", e.target.value)
+                        }
+                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-slate-300 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={doc.description}
+                        onChange={(e) =>
+                          handleDocumentChange(
+                            index,
+                            "description",
+                            e.target.value
+                          )
+                        }
+                        rows={3}
+                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                      />
+                    </div>
+
+                    {/* File upload area */}
+                    <div className="md:col-span-2">
+                      <label className="block text-slate-300 mb-2">
+                        Upload Document
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <input
+                          type="file"
+                          onChange={(e) => handleDocumentUpload(e, index)}
+                          accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
+                          className="flex-1 px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                        />
+                        {uploading &&
+                          index ===
+                            documentsData.findIndex((d) => d.id === doc.id) && (
+                            <span className="text-slate-400">Uploading...</span>
+                          )}
+                      </div>
+
+                      {doc.file && (
+                        <div className="mt-2">
+                          <a
+                            href={doc.file}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-accent-cyan hover:underline inline-flex items-center"
+                          >
+                            View Document
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </motion.div>
         )}
@@ -2461,8 +2827,6 @@ export default function AdminDashboardPage() {
               View and manage all media files stored in Supabase. You can delete
               individual files from storage.
             </p>
-
-            <StorageTracker />
 
             <div className="space-y-8">
               <div>
@@ -2492,6 +2856,130 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === "users" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="bg-slate-800 rounded-xl p-6 mb-8"
+          >
+            <div className="flex flex-wrap justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-accent-cyan">
+                User Management
+              </h2>
+              <button
+                onClick={handleUserUpdate}
+                disabled={saving}
+                className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : "Update User"}
+              </button>
+            </div>
+
+            {usersLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-cyan"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Users List */}
+                <div className="lg:col-span-1">
+                  <h3 className="text-xl font-semibold mb-4 text-accent-cyan">
+                    Users List
+                  </h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          selectedUser?.id === user.id
+                            ? "bg-accent-cyan/20 border border-accent-cyan"
+                            : "bg-slate-700 hover:bg-slate-600"
+                        }`}
+                        onClick={() => handleSelectUser(user)}
+                      >
+                        <div className="font-medium">{user.name || 'No Name'}</div>
+                        <div className="text-sm text-slate-400">{user.email}</div>
+                        <div className="text-xs text-slate-500">Role: {user.role}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* User Details */}
+                <div className="lg:col-span-2">
+                  {selectedUser ? (
+                    <div className="bg-slate-700 rounded-lg p-4">
+                      <h3 className="text-xl font-semibold mb-4">
+                        Edit User: {selectedUser.name || selectedUser.email}
+                      </h3>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-slate-300 mb-2">Email</label>
+                          <input
+                            type="email"
+                            value={selectedUser.email}
+                            onChange={(e) =>
+                              setSelectedUser({
+                                ...selectedUser,
+                                email: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 mb-2">Password</label>
+                          <input
+                            type="password"
+                            value={selectedUser.password}
+                            onChange={(e) =>
+                              setSelectedUser({
+                                ...selectedUser,
+                                password: e.target.value,
+                              })
+                            }
+                            placeholder="Enter new password (leave blank to keep current)"
+                            className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-300 mb-2">Role</label>
+                          <select
+                            value={selectedUser.role}
+                            onChange={(e) =>
+                              setSelectedUser({
+                                ...selectedUser,
+                                role: e.target.value,
+                              })
+                            }
+                            className="w-full px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="viewer">Viewer</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-700 rounded-lg p-4 text-center">
+                      <p className="text-slate-400">
+                        Select a user from the list to edit their details
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </div>
