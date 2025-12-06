@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from "framer-motion";
-import { FiFile, FiFolder, FiDownload, FiExternalLink, FiArrowLeft, FiEye } from 'react-icons/fi';
+import { FiFile, FiFolder, FiDownload, FiExternalLink, FiArrowLeft, FiEye, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { getFolderContents } from '@/lib/supabase/documents-folder-service';
 import { useSession } from 'next-auth/react';
 
@@ -33,6 +33,11 @@ export default function DocumentsContentClient({ documentAlbums }: DocumentsCont
   const [currentPath, setCurrentPath] = useState<string[]>([]); // Tracks the current navigation path
   const [currentItems, setCurrentItems] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState<boolean>(false);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<boolean>(false);
+  const [previewError, setPreviewError] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
 
   // Initialize with root items
   useEffect(() => {
@@ -117,6 +122,143 @@ export default function DocumentsContentClient({ documentAlbums }: DocumentsCont
     }
   };
 
+  // Function to get all files in the current view to enable navigation in the preview modal
+  const getAllFiles = () => {
+    return currentItems.filter(item => item.type === 'file');
+  };
+
+  const openPreviewModal = (index: number) => {
+    const file = getAllFiles()[index];
+    if (!file) return;
+
+    // Just use the file.file URL already provided from the service
+    const fileExtension = file.file.split(".").pop()?.toLowerCase();
+
+    const canPreview = ["jpg","jpeg","png","gif","bmp","webp","pdf"]
+      .includes(fileExtension || "");
+
+    setCurrentPreviewIndex(index);
+    setPreviewModalOpen(true);
+    setPreviewError(false);
+  };
+
+  const closePreviewModal = () => {
+    setPreviewModalOpen(false);
+    setCurrentPreviewIndex(null);
+    setPreviewError(false); // Reset error state when closing
+  };
+
+  const navigatePreview = (direction: 'prev' | 'next') => {
+    if (currentPreviewIndex === null) return;
+
+    const allFiles = getAllFiles();
+    if (allFiles.length === 0) return;
+
+    let newIndex = currentPreviewIndex;
+    if (direction === 'next') {
+      newIndex = (currentPreviewIndex + 1) % allFiles.length;
+    } else {
+      newIndex = (currentPreviewIndex - 1 + allFiles.length) % allFiles.length;
+    }
+
+    setCurrentPreviewIndex(newIndex);
+    setPreviewError(false); // Reset error when navigating
+    setPreviewLoading(true);
+    // Reset loading state after a brief moment to allow re-rendering
+    setTimeout(() => setPreviewLoading(false), 100);
+  };
+
+  // Function to export document as PDF
+  const exportAsPdf = async () => {
+    if (currentPreviewIndex === null || !currentFile) return;
+
+    setExporting(true);
+    try {
+      const fileExtension = currentFile.file.split('.').pop()?.toLowerCase();
+
+      // For PDF files, just download directly
+      if (fileExtension === 'pdf') {
+        const link = document.createElement('a');
+        link.href = currentFile.file;
+        link.download = `${currentFile.title}.pdf`;
+        link.click();
+        return;
+      }
+
+      // For images, we can create a simple PDF with the image
+      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExtension || '')) {
+        // Dynamically import jsPDF for PDF creation
+        const { jsPDF } = await import('jspdf');
+
+        // Create a temporary image element
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.src = currentFile.file;
+
+        img.onload = () => {
+          // Create PDF with proper dimensions
+          const pdf = new jsPDF({
+            orientation: img.width > img.height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [img.width, img.height]
+          });
+
+          pdf.addImage(img, 'JPEG', 0, 0, img.width, img.height);
+          pdf.save(`${currentFile.title}.pdf`);
+        };
+
+        return;
+      }
+
+      // For text files, create a PDF with the text content
+      if (['txt', 'csv', 'json', 'xml', 'md'].includes(fileExtension || '')) {
+        const response = await fetch(currentFile.file);
+        const content = await response.text();
+
+        const { jsPDF } = await import('jspdf');
+
+        const pdf = new jsPDF();
+        pdf.setFontSize(12);
+
+        // Add content to PDF with automatic page breaks
+        const pageHeight = pdf.internal.pageSize.height - 20;
+        // @ts-ignore: splitTextToSize may not be typed correctly
+        const lines = pdf.splitTextToSize(content, 180);
+
+        let y = 10;
+        lines.forEach((line: string) => {
+          if (y > pageHeight) {
+            pdf.addPage();
+            y = 10;
+          }
+          // @ts-ignore: text method may not be typed correctly
+          pdf.text(line, 10, y);
+          y += 7;
+        });
+
+        pdf.save(`${currentFile.title}.pdf`);
+        return;
+      }
+
+      // For other file types, just download the original file
+      const link = document.createElement('a');
+      link.href = currentFile.file;
+      link.download = `${currentFile.title}.${fileExtension}`;
+      link.click();
+    } catch (error) {
+      console.error('Error exporting file as PDF:', error);
+      // If export fails, just download the original file
+      if (currentFile) {
+        const link = document.createElement('a');
+        link.href = currentFile.file;
+        link.download = currentFile.title;
+        link.click();
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Show breadcrumbs
   const showBreadcrumbs = currentPath.length > 0;
 
@@ -130,6 +272,10 @@ export default function DocumentsContentClient({ documentAlbums }: DocumentsCont
       </div>
     );
   }
+
+  // Get the current file to preview
+  const allFiles = getAllFiles();
+  const currentFile = currentPreviewIndex !== null ? allFiles[currentPreviewIndex] : null;
 
   return (
     <div className="min-h-screen bg-slate-900 text-white py-16">
@@ -262,16 +408,18 @@ export default function DocumentsContentClient({ documentAlbums }: DocumentsCont
 
                     {/* File actions */}
                     <div className="flex space-x-2 mt-3">
-                      <a
-                        href={item.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => {
+                          const fileIndex = getAllFiles().findIndex(f => f.id === item.id);
+                          if (fileIndex !== -1) {
+                            openPreviewModal(fileIndex);
+                          }
+                        }}
                         className="flex items-center text-sm text-accent-cyan hover:text-accent-cyan/80 transition-colors"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         <FiEye className="mr-1" />
                         <span>Preview</span>
-                      </a>
+                      </button>
                       <a
                         href={item.file}
                         download={item.title || 'document'}
@@ -288,6 +436,227 @@ export default function DocumentsContentClient({ documentAlbums }: DocumentsCont
           ))}
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {previewModalOpen && currentFile && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-6xl max-h-[90vh] bg-slate-800 rounded-xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-700">
+              <h3 className="text-lg font-semibold truncate max-w-xs md:max-w-md lg:max-w-lg">
+                {currentFile.title}
+              </h3>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={exportAsPdf}
+                  disabled={exporting}
+                  className={`p-2 rounded-full transition-colors ${
+                    exporting
+                      ? 'text-slate-500 cursor-not-allowed'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-700'
+                  }`}
+                  title={exporting ? "Exporting..." : "Export as PDF"}
+                >
+                  {exporting ? (
+                    <div className="w-5 h-5 border-t-2 border-slate-500 border-solid rounded-full animate-spin"></div>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7,10 12,15 17,10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                  )}
+                </button>
+                <a
+                  href={currentFile.file}
+                  download={currentFile.title}
+                  className="text-slate-300 hover:text-white hover:bg-slate-700 p-2 rounded-full transition-colors"
+                  title="Download Original"
+                >
+                  <FiDownload className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={closePreviewModal}
+                  className="text-slate-300 hover:text-white hover:bg-slate-700 p-2 rounded-full transition-colors"
+                  title="Close"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content - Document Preview */}
+            <div className="flex-1 overflow-auto max-h-[70vh]">
+              {previewLoading ? (
+                <div className="flex items-center justify-center h-[70vh] w-full">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-cyan"></div>
+                </div>
+              ) : previewError ? (
+                <div className="flex flex-col items-center justify-center h-[70vh] text-center p-4">
+                  <FiFile className="w-16 h-16 text-slate-500 mb-4" />
+                  <h4 className="text-xl font-semibold mb-2">File Not Found</h4>
+                  <p className="text-slate-400 mb-4">
+                    The requested file could not be found in storage.
+                  </p>
+                  <a
+                    href={currentFile?.file || ''}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-accent-cyan text-slate-900 rounded-lg font-medium hover:bg-cyan-400 transition-colors"
+                  >
+                    Try Opening in New Tab
+                  </a>
+                </div>
+              ) : (
+                <div className="p-4">
+                  {/* Determine how to display the document based on file type */}
+                  {currentFile?.file && (
+                    (() => {
+                      const fileExtension = currentFile.file.split('.').pop()?.toLowerCase();
+
+                      // Check if it's an image file
+                      if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(fileExtension || '')) {
+                        console.log('Previewing image:', currentFile.file); // Debug log
+                        return (
+                          <div className="flex justify-center">
+                            <img
+                              src={currentFile.file}
+                              alt={currentFile.title}
+                              className="max-h-[70vh] object-contain rounded-lg"
+                              onError={() => {
+                                console.error('Image failed to load:', currentFile.file); // Debug log
+                                setPreviewError(true)
+                              }}
+                              onLoad={() => {
+                                console.log('Image loaded successfully:', currentFile.file); // Debug log
+                                setPreviewError(false)
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // Check if it's a PDF
+                      else if (fileExtension === 'pdf') {
+                        console.log('Previewing PDF:', currentFile.file); // Debug log
+                        return (
+                          <div className="flex justify-center w-full">
+                            {/* Direct iframe approach for PDFs to ensure direct access from Supabase */}
+                            <iframe
+                              src={currentFile.file}
+                              className="w-full h-[70vh] border-0 rounded-lg"
+                              title={currentFile.title}
+                              onError={() => {
+                                console.error('PDF failed to load:', currentFile.file); // Debug log
+                                setPreviewError(true)
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // Check if it's a text-based document (txt, csv, etc.)
+                      else if (['txt', 'csv', 'json', 'xml', 'md'].includes(fileExtension || '')) {
+                        console.log('Previewing text file:', currentFile.file); // Debug log
+                        return (
+                          <div className="max-h-[70vh] overflow-auto bg-slate-900 p-4">
+                            {/* Direct fetch and display for text files to access directly from Supabase */}
+                            <iframe
+                              src={currentFile.file}
+                              className="w-full h-[70vh] border-0 rounded-lg bg-white text-black"
+                              title={currentFile.title}
+                              onError={() => {
+                                console.error('Text file failed to load:', currentFile.file); // Debug log
+                                setPreviewError(true)
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // Check if it's a Microsoft Office document (attempt to render using Office Online)
+                      else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(fileExtension || '')) {
+                        console.log('Previewing Office document:', currentFile.file); // Debug log
+                        // Use Microsoft Office Online viewer for Office documents - direct access
+                        const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(currentFile.file)}`;
+
+                        return (
+                          <div className="flex justify-center w-full">
+                            <iframe
+                              src={officeViewerUrl}
+                              className="w-full h-[70vh] border-0 rounded-lg"
+                              title={currentFile.title}
+                              onError={() => {
+                                console.error('Office document failed to load:', currentFile.file); // Debug log
+                                setPreviewError(true)
+                              }}
+                            />
+                          </div>
+                        );
+                      }
+
+                      // For other document types, show a link to open in new tab
+                      else {
+                        return (
+                          <div className="flex flex-col items-center justify-center h-[70vh] text-center p-4">
+                            <FiFile className="w-16 h-16 text-slate-500 mb-4" />
+                            <h4 className="text-xl font-semibold mb-2">{currentFile.title}</h4>
+                            <p className="text-slate-400 mb-4">
+                              This document type ({fileExtension}) cannot be previewed in the browser.
+                            </p>
+                            <div className="flex gap-3">
+                              <a
+                                href={currentFile.file}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 bg-accent-cyan text-slate-900 rounded-lg font-medium hover:bg-cyan-400 transition-colors"
+                              >
+                                View in Browser
+                              </a>
+                              <a
+                                href={currentFile.file}
+                                download={currentFile.title}
+                                className="px-4 py-2 bg-slate-700 text-white rounded-lg font-medium hover:bg-slate-600 transition-colors"
+                              >
+                                Download
+                              </a>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })()
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Navigation controls */}
+            {allFiles.length > 1 && (
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                <div className="flex items-center space-x-4 bg-slate-900/80 px-4 py-2 rounded-full">
+                  <button
+                    onClick={() => navigatePreview('prev')}
+                    className="p-2 rounded-full hover:bg-slate-700 transition-colors"
+                    title="Previous document"
+                  >
+                    <FiChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="text-sm">
+                    {currentPreviewIndex !== null ? currentPreviewIndex + 1 : 0} of {allFiles.length}
+                  </span>
+                  <button
+                    onClick={() => navigatePreview('next')}
+                    className="p-2 rounded-full hover:bg-slate-700 transition-colors"
+                    title="Next document"
+                  >
+                    <FiChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

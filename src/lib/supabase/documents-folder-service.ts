@@ -48,10 +48,63 @@ export async function getRootDocumentEntries(): Promise<FolderStructure> {
 
     if (error) {
       console.error('Error fetching documents from Supabase storage:', error);
-      return { folders: [], files: [] };
+      // If we get an error trying to list the documents/ folder, let's try to list the root
+      console.log('Attempting to list root level due to error...');
+      const { data: rootFiles, error: rootError } = await supabase.storage
+        .from('Images')
+        .list('', {  // List from root
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (rootError) {
+        console.error('Error listing root files:', rootError);
+        return { folders: [], files: [] };
+      } else {
+        console.log('Root level files:', rootFiles);
+        // Filter for files that might be document-related
+        const possibleDocumentFiles = rootFiles.filter(item =>
+          item.name.startsWith('documents/') ||
+          item.name.endsWith('.pdf') ||
+          item.name.endsWith('.doc') ||
+          item.name.endsWith('.docx') ||
+          item.name.includes('document')
+        );
+        console.log('Possible document files:', possibleDocumentFiles);
+        if (possibleDocumentFiles.length > 0) {
+          return { folders: [], files: possibleDocumentFiles };
+        }
+        // If no document-like files found, return empty
+        return { folders: [], files: [] };
+      }
     }
 
+    console.log('Raw files from Supabase storage:', files); // Debug log
+
     if (!files || files.length === 0) {
+      console.log('No files found in documents/ folder, checking root level...');
+      const { data: rootFiles, error: rootError } = await supabase.storage
+        .from('Images')
+        .list('', {  // List from root
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (rootError) {
+        console.error('Error listing root files:', rootError);
+      } else {
+        console.log('Root level files:', rootFiles);
+        // Filter for files that start with 'documents/'
+        const documentFiles = rootFiles.filter(item => item.name.startsWith('documents/'));
+        console.log('Files starting with "documents/":', documentFiles);
+        if (documentFiles.length > 0) {
+          // This means files exist at a different level than expected
+          return { folders: [], files: documentFiles };
+        }
+      }
+
       console.log('No documents found in Supabase storage');
       return { folders: [], files: [] };
     }
@@ -60,7 +113,7 @@ export async function getRootDocumentEntries(): Promise<FolderStructure> {
     const filesList: DocumentItem[] = [];
     const folderSet = new Set<string>(); // To track folders we've already added
 
-    // Extract all unique folder names from file paths
+    // Process all files first to identify all unique folders
     for (const file of files) {
       if (!file.name) continue; // Skip if file has no name
 
@@ -91,28 +144,36 @@ export async function getRootDocumentEntries(): Promise<FolderStructure> {
     for (const file of files) {
       if (!file.name) continue; // Skip if file has no name
 
+      // The file.name returned by .list('documents/', ...) includes subdirectories
+      // If a file is at documents/documents/filename.pdf, the file.name will be "documents/filename.pdf"
       const fileName = file.name;
 
-      if (fileName.includes('/')) {
-        // This is a file inside a subfolder
-        const parts = fileName.split('/');
-        const folderName = parts[0];
-        const actualFileName = parts.slice(1).join('/');
+      // Simply prepend the root folder to get the full path
+      // Supabase .list("documents/") returns names like "documents/filename.pdf"
+      // So fullPath is "documents/" + "documents/filename.pdf" = "documents/documents/filename.pdf"
+      const fullPath = `documents/${fileName}`;
 
-        // Get public URL for the file
-        const { data: { publicUrl } } = supabase.storage
-          .from('Images')
-          .getPublicUrl(`documents/${fileName}`);
+      const { data: { publicUrl } } = supabase.storage
+        .from("Images")
+        .getPublicUrl(fullPath);
+
+      console.log("LISTED:", fileName, " -> FULL:", fullPath); // Debug log
+
+      if (fileName.includes('/')) {
+        // This is a file inside a subfolder (e.g., documents/subfolder/filename.pdf)
+        const parts = fileName.split('/');
+        const folderName = parts[0]; // This could be 'documents' if path is documents/documents/file.pdf
+        const actualFileName = parts.slice(1).join('/'); // Rest of the path
 
         // Check if the file has an extension to determine if it's a file or a folder
-        const hasExtension = actualFileName.includes('.');
+        const hasExtension = actualFileName.includes('.') || parts[parts.length - 1].includes('.');
 
         if (hasExtension) {
           // It's a file with an extension
           const fileEntry: DocumentItem = {
             id: Date.now() + Math.floor(Math.random() * 10000),
             title: actualFileName.replace(/\.[^/.]+$/, ""), // Remove extension for title
-            file: publicUrl,
+            file: publicUrl, // Use the properly constructed public URL
             description: `Document in ${folderName} folder`,
             category: folderName,
             orderIndex: 0,
@@ -139,10 +200,6 @@ export async function getRootDocumentEntries(): Promise<FolderStructure> {
         }
       } else {
         // This is a file directly in the 'documents' folder
-        const { data: { publicUrl } } = supabase.storage
-          .from('Images')
-          .getPublicUrl(`documents/${fileName}`);
-
         // Check if the file has an extension
         const hasExtension = fileName.includes('.');
 
@@ -151,7 +208,7 @@ export async function getRootDocumentEntries(): Promise<FolderStructure> {
           const fileEntry: DocumentItem = {
             id: Date.now() + Math.floor(Math.random() * 10000), // Temporary ID
             title: fileName.replace(/\.[^/.]+$/, ""), // Remove extension for title
-            file: publicUrl,
+            file: publicUrl, // Use the properly constructed public URL
             description: `Document in root folder`,
             category: 'documents',
             orderIndex: 0,
@@ -218,6 +275,8 @@ export async function getFolderContents(folderName: string): Promise<FolderStruc
       return { folders: [], files: [] };
     }
 
+    console.log(`Raw files from folder ${folderName}:`, files); // Debug log
+
     if (!files || files.length === 0) {
       console.log(`No contents found in folder ${folderName}`);
       return { folders: [], files: [] };
@@ -233,6 +292,11 @@ export async function getFolderContents(folderName: string): Promise<FolderStruc
 
       const fileName = file.name;
 
+      // Rebuild the storage path: documents/folderName/fileName
+      // When we call .list('documents/certificates/'), Supabase returns 'filename.pdf' as the name
+      // So the full path to access is 'documents/certificates/filename.pdf'
+      const correctStoragePath = `documents/${folderName}/${fileName}`;
+
       // For items in a specific folder, determine if it's a file or potential folder
       // based on whether it has a file extension
       const hasExtension = fileName.includes('.');
@@ -241,12 +305,14 @@ export async function getFolderContents(folderName: string): Promise<FolderStruc
         // It's a file with an extension
         const { data: { publicUrl } } = supabase.storage
           .from('Images')
-          .getPublicUrl(`documents/${folderName}/${fileName}`);
+          .getPublicUrl(correctStoragePath); // Use the corrected path format
+
+        console.log(`Folder ${folderName} - File name from Supabase: ${fileName}, Full path: ${correctStoragePath}`); // Debug log
 
         const fileEntry: DocumentItem = {
           id: Date.now() + Math.floor(Math.random() * 10000),
           title: fileName.replace(/\.[^/.]+$/, ""), // Remove extension for title
-          file: publicUrl,
+          file: publicUrl, // Use properly constructed URL
           description: `Document in ${folderName} folder`,
           category: folderName,
           orderIndex: 0,

@@ -18,17 +18,121 @@ interface DocumentItem {
 }
 
 export default function DocumentManager() {
-  const [currentPath, setCurrentPath] = useState<string>('documents/');
+  const [currentPath, setCurrentPath] = useState<string>('rootdocs/'); // Changed to rootdocs to match document reader app
   const [documentItems, setDocumentItems] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: '' });
   const [uploading, setUploading] = useState(false);
+  const [targetFolder, setTargetFolder] = useState<string>('rootdocs/'); // For upload target
+  const [existingFolders, setExistingFolders] = useState<string[]>([]);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+  const [useExistingFolder, setUseExistingFolder] = useState(true);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
 
+  // Fetch existing folders in the current path
   useEffect(() => {
+    const fetchFolders = async () => {
+      setIsLoadingFolders(true);
+      try {
+        // Create Supabase client for browser
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        const { data, error: listError } = await supabase.storage
+          .from('Images') // Using the same bucket as images
+          .list(currentPath, {
+            limit: 100,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' },
+          });
+
+        if (listError) {
+          console.error('Error fetching folders:', listError);
+          setError('Failed to fetch folders from storage');
+          return;
+        }
+
+        if (data) {
+          // Filter out files and keep only folders (items without extensions)
+          const folders = data
+            .filter(item => !item.name.includes('.')) // Folders don't have extensions
+            .map(item => item.name);
+          setExistingFolders(folders);
+
+          // Set the target folder to the current path
+          setTargetFolder(currentPath);
+        } else {
+          setExistingFolders([]);
+        }
+      } catch (err) {
+        console.error('Error in fetchFolders:', err);
+        setError('An unexpected error occurred while fetching folders');
+      } finally {
+        setIsLoadingFolders(false);
+      }
+    };
+
+    fetchFolders();
     fetchDocumentItems(currentPath);
   }, [currentPath]);
+
+  const createFolder = async (folderName: string) => {
+    try {
+      // Create Supabase client
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // Create a placeholder file to create the folder
+      const placeholderFile = new File([""], ".folder-placeholder", { type: "text/plain" });
+      const placeholderPath = `${currentPath}${folderName}/.folder-placeholder`;
+
+      const { error } = await supabase
+        .storage
+        .from('Images')
+        .upload(placeholderPath, placeholderFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        // If folder already exists, the upload will fail, but that's ok
+        if (!error.message.includes("The resource already exists")) {
+          throw error;
+        }
+      }
+
+      // Refresh the folder list after creating a new folder
+      const { data: foldersData, error: listError } = await supabase.storage
+        .from('Images')
+        .list(currentPath, {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (listError) {
+        console.error('Error refetching folders:', listError);
+      } else if (foldersData) {
+        const folders = foldersData
+          .filter(item => !item.name.includes('.')) // Folders don't have extensions
+          .map(item => item.name);
+        setExistingFolders(folders);
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error('Error creating folder:', error);
+      toast.error(`Failed to create folder: ${error.message || 'Unknown error'}`);
+      return false;
+    }
+  };
 
   const fetchDocumentItems = async (path: string) => {
     try {
@@ -77,9 +181,9 @@ export default function DocumentManager() {
               .from('Images')
               .getPublicUrl(fullFilePath);
 
-            // Extract category from path (first directory level after 'documents/')
-            const pathParts = path.replace('documents/', '').split('/').filter(p => p);
-            const category = pathParts.length > 0 ? pathParts[0] : 'documents';
+            // Extract category from path (first directory level after 'rootdocs/')
+            const pathParts = path.replace('rootdocs/', '').split('/').filter(p => p);
+            const category = pathParts.length > 0 ? pathParts[0] : 'rootdocs';
 
             return {
               id: fullFilePath,
@@ -122,7 +226,7 @@ export default function DocumentManager() {
   };
 
   const goBack = () => {
-    if (currentPath === 'documents/') {
+    if (currentPath === 'rootdocs/') {
       // Already at root
       return;
     }
@@ -134,7 +238,7 @@ export default function DocumentManager() {
       const newPath = pathParts.join('/') + '/';
       setCurrentPath(newPath);
     } else {
-      setCurrentPath('documents/');
+      setCurrentPath('rootdocs/');
     }
   };
 
@@ -274,19 +378,120 @@ export default function DocumentManager() {
             <FiChevronLeft className="w-5 h-5" />
           </button>
           <div className="text-sm text-slate-400">
-            {currentPath === 'documents/'
+            {currentPath === 'rootdocs/'
               ? 'Documents Root'
-              : `Documents / ${currentPath.replace('documents/', '').replace('/', ' / ')}`
+              : `Documents / ${currentPath.replace('rootdocs/', '').replace('/', ' / ')}`
             }
           </div>
         </div>
       </div>
 
       {/* Upload section - only show at root level for now */}
-      {currentPath === 'documents/' && (
+      {currentPath === 'rootdocs/' && (
         <div className="mb-6 p-4 bg-slate-800 rounded-lg">
+          <h3 className="text-lg font-medium text-slate-300 mb-4">Upload New Document</h3>
+
+          <div className="mb-4">
+            <div className="flex items-center mb-2">
+              <label className="block text-sm font-medium text-slate-300 mr-2">
+                Upload to folder:
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="checkbox"
+                  checked={useExistingFolder}
+                  onChange={(e) => setUseExistingFolder(e.target.checked)}
+                  className="rounded text-accent-cyan focus:ring-accent-cyan"
+                />
+                <span className="ml-1 text-sm text-slate-400">Use existing folder</span>
+              </label>
+            </div>
+
+            {useExistingFolder ? (
+              // Dropdown for existing folders
+              <div className="flex">
+                <select
+                  value={targetFolder.replace(currentPath, '').replace('/', '') || 'rootdocs'}
+                  onChange={(e) => {
+                    const selected = e.target.value;
+                    if (selected === 'rootdocs') {
+                      setTargetFolder('rootdocs/');
+                    } else {
+                      setTargetFolder(`${currentPath}${selected}/`);
+                    }
+                  }}
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200"
+                >
+                  <option value="rootdocs">Upload to root folder</option>
+                  {isLoadingFolders ? (
+                    <option value="">Loading folders...</option>
+                  ) : existingFolders.length === 0 ? (
+                    <option value="">No folders available</option>
+                  ) : (
+                    existingFolders.map((folder, index) => (
+                      <option key={index} value={folder}>{folder}</option>
+                    ))
+                  )}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setUseExistingFolder(false)}
+                  className="px-4 py-2 bg-slate-600 text-slate-200 rounded-r-lg hover:bg-slate-500 border-l border-slate-500"
+                >
+                  New
+                </button>
+              </div>
+            ) : (
+              // Input for new folder
+              <div className="flex">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Enter new folder name"
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (newFolderName.trim() !== '') {
+                      setCreatingFolder(true);
+                      const folderCreated = await createFolder(newFolderName.trim());
+                      if (folderCreated) {
+                        // Set the new folder as the target
+                        setTargetFolder(`${currentPath}${newFolderName.trim()}/`);
+                        toast.success(`Folder "${newFolderName.trim()}" created successfully!`);
+                        setNewFolderName('');
+                      } else {
+                        toast.error(`Failed to create folder "${newFolderName.trim()}"`);
+                      }
+                      setCreatingFolder(false);
+                    }
+                  }}
+                  disabled={creatingFolder || newFolderName.trim() === ''}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingFolder ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUseExistingFolder(!useExistingFolder);
+                  // Reset new folder name when switching
+                  if (!useExistingFolder) setNewFolderName('');
+                }}
+                className="text-sm text-accent-cyan hover:text-cyan-400"
+              >
+                {useExistingFolder ? 'Switch to create new folder' : 'Switch to existing folders'}
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-4 items-center">
-            <h3 className="text-lg font-medium text-slate-300">Upload New Document</h3>
             <input
               type="file"
               onChange={async (e) => {
@@ -302,9 +507,18 @@ export default function DocumentManager() {
                     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
                   );
 
+                  // Determine the upload path based on target folder
+                  let uploadPath = targetFolder;
+                  if (targetFolder === 'rootdocs/') {
+                    // If uploading to root, use rootdocs/
+                    uploadPath = 'rootdocs/';
+                  } else {
+                    // If uploading to a subfolder, the targetFolder already includes the path
+                  }
+
                   const { data, error } = await supabase.storage
                     .from('Images')
-                    .upload(`documents/${file.name}`, file, {
+                    .upload(`${uploadPath}${file.name}`, file, {
                       cacheControl: '3600',
                       upsert: true
                     });

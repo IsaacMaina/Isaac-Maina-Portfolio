@@ -25,6 +25,25 @@ const Header = () => {
     { name: "Contact", path: "/contact" },
   ];
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const menuButton = document.querySelector('.mobile-menu-button');
+      const mobileMenu = document.querySelector('.mobile-menu');
+
+      if (isMenuOpen && menuButton && mobileMenu &&
+          !menuButton.contains(event.target as Node) &&
+          !mobileMenu.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
   return (
     <header className="py-6 px-4 sm:px-8 bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50 border-b border-slate-800">
       <div className="max-w-7xl mx-auto flex justify-between items-center">
@@ -63,7 +82,7 @@ const Header = () => {
         </nav>
 
         {/* Mobile Menu Button */}
-        <div className="md:hidden">
+        <div className="md:hidden mobile-menu-button">
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="text-slate-300 hover:text-white focus:outline-none"
@@ -83,7 +102,7 @@ const Header = () => {
         initial={false}
         animate={{ height: isMenuOpen ? "auto" : "0" }}
         transition={{ duration: 0.3 }}
-        className={`overflow-hidden md:hidden ${
+        className={`overflow-hidden md:hidden mobile-menu ${
           isMenuOpen ? "pb-6" : ""
         }`}
       >

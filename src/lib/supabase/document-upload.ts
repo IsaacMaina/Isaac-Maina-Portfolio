@@ -19,8 +19,12 @@ export async function uploadDocumentToSupabase(file: File, category: string = 'd
     // Create a unique name for the file
     const timestamp = Date.now();
     const fileName = `${timestamp}_${file.name}`;
+
     // Store documents in the documents folder, then in the specific category subfolder
-    const filePath = `documents/${sanitizedCategory}/${fileName}`;
+    // Special handling for the 'documents' category to avoid double nesting: documents/documents/
+    const filePath = sanitizedCategory === 'documents'
+      ? `documents/${fileName}`  // Store directly in documents/ if category is 'documents'
+      : `documents/${sanitizedCategory}/${fileName}`; // Otherwise use category subfolder
 
     // Upload the file to Supabase storage in the category folder
     // Using the same bucket as images ('Images')
