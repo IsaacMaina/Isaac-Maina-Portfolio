@@ -32,6 +32,9 @@ export default function DocumentManager() {
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
 
+  // State for creating new folders within any directory
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
   // Fetch existing folders in the current path
   useEffect(() => {
     const fetchFolders = async () => {
@@ -131,6 +134,48 @@ export default function DocumentManager() {
       console.error('Error creating folder:', error);
       toast.error(`Failed to create folder: ${error.message || 'Unknown error'}`);
       return false;
+    }
+  };
+
+  // Function to create a new folder in the current directory
+  const createNewFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error('Folder name cannot be empty');
+      return;
+    }
+
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // Create a placeholder file to create the folder in Supabase storage
+      // Supabase storage doesn't have true folders, but we can create a folder by uploading a file to a path
+      const placeholderFile = new File([""], ".folder-placeholder", { type: "text/plain" });
+      const folderPath = `${currentPath}${newFolderName}/.folder-placeholder`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('Images')
+        .upload(folderPath, placeholderFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Error creating folder:', uploadError);
+        toast.error('Failed to create folder');
+        return;
+      }
+
+      // Clear the input and refresh the view
+      setNewFolderName('');
+      setIsCreatingFolder(false);
+      fetchDocumentItems(currentPath);
+      toast.success(`Folder "${newFolderName}" created successfully`);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast.error('An unexpected error occurred while creating folder');
     }
   };
 
@@ -295,8 +340,8 @@ export default function DocumentManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
 
-      // First, list all items in the folder
-      const { data: items, error: listError } = await supabase.storage
+      // First, list all items in the folder and delete them recursively
+      const { data: folderContents, error: listError } = await supabase.storage
         .from('Images')
         .list(folderPath, {
           limit: 1000,
@@ -310,25 +355,46 @@ export default function DocumentManager() {
         return;
       }
 
-      if (items && items.length > 0) {
-        // Collect all items to delete
-        const itemsToDelete: string[] = items
-          .filter(item => item.name && !item.name.startsWith('.')) // Exclude hidden files/folders
-          .map(item => `${folderPath}${item.name}`);
+      if (folderContents && folderContents.length > 0) {
+        // Collect all file paths to delete (including from subfolders)
+        const filePaths: string[] = [];
 
-        if (itemsToDelete.length > 0) {
-          // Delete all items in the folder
+        for (const item of folderContents) {
+          if (item.type === 'folder') {
+            // If there are subfolders, list their contents as well
+            const subfolderPath = `${folderPath}${item.name}/`;
+            const { data: subfolderContents, error: subfolderError } = await supabase.storage
+              .from('Images')
+              .list(subfolderPath, {
+                limit: 1000,
+                offset: 0,
+                sortBy: { column: 'name', order: 'asc' },
+              });
+
+            if (!subfolderError && subfolderContents) {
+              subfolderContents.forEach(subItem => {
+                if (subItem.type !== 'folder') {
+                  filePaths.push(`${subfolderPath}${subItem.name}`);
+                }
+              });
+            }
+          } else {
+            // This is a file, add to deletion list
+            filePaths.push(`${folderPath}${item.name}`);
+          }
+        }
+
+        // Delete all files in the folder and subfolders
+        if (filePaths.length > 0) {
           const { error: deleteError } = await supabase.storage
             .from('Images')
-            .remove(itemsToDelete);
+            .remove(filePaths);
 
           if (deleteError) {
-            console.error('Error deleting items in folder:', deleteError);
-            toast.error('Failed to delete some items in the folder');
+            console.error('Error deleting files in folder:', deleteError);
+            toast.error('Failed to delete some files in the folder');
             return;
           }
-
-          toast.success(`Deleted ${itemsToDelete.length} items in folder`);
         }
       }
 
@@ -445,118 +511,21 @@ export default function DocumentManager() {
         </div>
       </div>
 
-      {/* Upload section - only show at root level for now */}
-      {currentPath === 'rootdocs/' && (
-        <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-          <h3 className="text-lg font-medium text-slate-300 mb-4">Upload New Document</h3>
+      {/* Upload and folder creation section - works in any directory */}
+      <div className="mb-6 p-4 bg-slate-800 rounded-lg">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <h3 className="text-lg font-medium text-slate-300 md:self-center">
+            Upload Documents or Create Folders
+          </h3>
 
-          <div className="mb-4">
-            <div className="flex items-center mb-2">
-              <label className="block text-sm font-medium text-slate-300 mr-2">
-                Upload to folder:
-              </label>
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={useExistingFolder}
-                  onChange={(e) => setUseExistingFolder(e.target.checked)}
-                  className="rounded text-accent-cyan focus:ring-accent-cyan"
-                />
-                <span className="ml-1 text-sm text-slate-400">Use existing folder</span>
-              </label>
-            </div>
-
-            {useExistingFolder ? (
-              // Dropdown for existing folders
-              <div className="flex">
-                <select
-                  value={targetFolder.replace(currentPath, '').replace('/', '') || 'rootdocs'}
-                  onChange={(e) => {
-                    const selected = e.target.value;
-                    if (selected === 'rootdocs') {
-                      setTargetFolder('rootdocs/');
-                    } else {
-                      setTargetFolder(`${currentPath}${selected}/`);
-                    }
-                  }}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200"
-                >
-                  <option value="rootdocs">Upload to root folder</option>
-                  {isLoadingFolders ? (
-                    <option value="">Loading folders...</option>
-                  ) : existingFolders.length === 0 ? (
-                    <option value="">No folders available</option>
-                  ) : (
-                    existingFolders.map((folder, index) => (
-                      <option key={index} value={folder}>{folder}</option>
-                    ))
-                  )}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setUseExistingFolder(false)}
-                  className="px-4 py-2 bg-slate-600 text-slate-200 rounded-r-lg hover:bg-slate-500 border-l border-slate-500"
-                >
-                  New
-                </button>
-              </div>
-            ) : (
-              // Input for new folder
-              <div className="flex">
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Enter new folder name"
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200"
-                />
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (newFolderName.trim() !== '') {
-                      setCreatingFolder(true);
-                      const folderCreated = await createFolder(newFolderName.trim());
-                      if (folderCreated) {
-                        // Set the new folder as the target
-                        setTargetFolder(`${currentPath}${newFolderName.trim()}/`);
-                        toast.success(`Folder "${newFolderName.trim()}" created successfully!`);
-                        setNewFolderName('');
-                      } else {
-                        toast.error(`Failed to create folder "${newFolderName.trim()}"`);
-                      }
-                      setCreatingFolder(false);
-                    }
-                  }}
-                  disabled={creatingFolder || newFolderName.trim() === ''}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {creatingFolder ? 'Creating...' : 'Create'}
-                </button>
-              </div>
-            )}
-
-            <div className="flex items-center mt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUseExistingFolder(!useExistingFolder);
-                  // Reset new folder name when switching
-                  if (!useExistingFolder) setNewFolderName('');
-                }}
-                className="text-sm text-accent-cyan hover:text-cyan-400"
-              >
-                {useExistingFolder ? 'Switch to create new folder' : 'Switch to existing folders'}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex flex-col sm:flex-row gap-2 flex-1 w-full">
             <input
               type="file"
+              multiple
               onChange={async (e) => {
                 if (!e.target.files || e.target.files.length === 0) return;
 
-                const file = e.target.files[0];
+                const files = Array.from(e.target.files);
                 setUploading(true);
 
                 try {
@@ -566,30 +535,24 @@ export default function DocumentManager() {
                     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
                   );
 
-                  // Determine the upload path based on target folder
-                  let uploadPath = targetFolder;
-                  if (targetFolder === 'rootdocs/') {
-                    // If uploading to root, use rootdocs/
-                    uploadPath = 'rootdocs/';
-                  } else {
-                    // If uploading to a subfolder, the targetFolder already includes the path
+                  for (const file of files) {
+                    const { data, error } = await supabase.storage
+                      .from('Images')
+                      .upload(`${currentPath}${file.name}`, file, {
+                        cacheControl: '3600',
+                        upsert: true
+                      });
+
+                    if (error) {
+                      console.error(`Upload error for ${file.name}:`, error);
+                      toast.error(`Failed to upload ${file.name}: ${error.message}`);
+                    } else {
+                      toast.success(`${file.name} uploaded successfully!`);
+                    }
                   }
 
-                  const { data, error } = await supabase.storage
-                    .from('Images')
-                    .upload(`${uploadPath}${file.name}`, file, {
-                      cacheControl: '3600',
-                      upsert: true
-                    });
-
-                  if (error) {
-                    console.error('Upload error:', error);
-                    toast.error('Failed to upload document');
-                  } else {
-                    toast.success('Document uploaded successfully!');
-                    // Refresh the list
-                    fetchDocumentItems(currentPath);
-                  }
+                  // Refresh the list
+                  fetchDocumentItems(currentPath);
                 } catch (err) {
                   console.error('Upload error:', err);
                   toast.error('An unexpected error occurred');
@@ -599,18 +562,55 @@ export default function DocumentManager() {
                   e.target.value = '';
                 }
               }}
-              className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
               accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
             />
-            {uploading && (
-              <div className="flex items-center text-slate-400">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
-                Uploading...
+
+            {isCreatingFolder ? (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createNewFolder();
+                    if (e.key === 'Escape') setIsCreatingFolder(false);
+                  }}
+                  autoFocus
+                />
+                <button
+                  onClick={createNewFolder}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setIsCreatingFolder(false)}
+                  className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
+                >
+                  Cancel
+                </button>
               </div>
+            ) : (
+              <button
+                onClick={() => setIsCreatingFolder(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Create Folder
+              </button>
             )}
           </div>
+
+          {uploading && (
+            <div className="flex items-center text-slate-400 self-start md:self-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
+              Uploading...
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Documents table */}
       <table className="min-w-full divide-y divide-slate-700">

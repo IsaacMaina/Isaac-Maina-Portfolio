@@ -163,10 +163,63 @@ export default function GalleryManager() {
           return;
         }
       } else {
-        // For folder deletion, we need to first list all items in the folder and delete them recursively
-        // This is a simplified version - in a real implementation, you'd need to fetch all nested items
-        toast.error('Folder deletion is not supported in this interface. Please ensure folder is empty before attempting to delete.');
-        return;
+        // For folder deletion, list all items in the folder and delete them recursively
+        const { data: folderContents, error: listError } = await supabase.storage
+          .from('Images')
+          .list(itemPath, {
+            limit: 1000,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' },
+          });
+
+        if (listError) {
+          console.error(`Error listing contents of folder ${itemPath}:`, listError);
+          toast.error(`Failed to list contents of folder: ${listError.message}`);
+          return;
+        }
+
+        if (folderContents && folderContents.length > 0) {
+          // Collect all file paths to delete
+          const filePaths: string[] = [];
+
+          for (const item of folderContents) {
+            if (item.type === 'folder') {
+              // If there are subfolders, recursively list their contents as well
+              const subfolderPath = `${itemPath}${item.name}/`;
+              const { data: subfolderContents, error: subfolderError } = await supabase.storage
+                .from('Images')
+                .list(subfolderPath, {
+                  limit: 1000,
+                  offset: 0,
+                  sortBy: { column: 'name', order: 'asc' },
+                });
+
+              if (!subfolderError && subfolderContents) {
+                subfolderContents.forEach(subItem => {
+                  if (subItem.type !== 'folder') {
+                    filePaths.push(`${subfolderPath}${subItem.name}`);
+                  }
+                });
+              }
+            } else {
+              // This is a file, add to deletion list
+              filePaths.push(`${itemPath}${item.name}`);
+            }
+          }
+
+          // Delete all files in the folder
+          if (filePaths.length > 0) {
+            const { error: deleteError } = await supabase.storage
+              .from('Images')
+              .remove(filePaths);
+
+            if (deleteError) {
+              console.error('Error deleting files in folder:', deleteError);
+              toast.error('Failed to delete some files in the folder');
+              return;
+            }
+          }
+        }
       }
 
       // Refresh the current view
@@ -175,6 +228,92 @@ export default function GalleryManager() {
     } catch (err) {
       console.error(`Error deleting ${itemType}:`, err);
       toast.error(`An unexpected error occurred while deleting ${itemType}`);
+    }
+  };
+
+  // Function to create a new folder
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const createNewFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error('Folder name cannot be empty');
+      return;
+    }
+
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // Create a placeholder file to create the folder in Supabase storage
+      // Supabase storage doesn't have true folders, but we can create a folder by uploading a file to a path
+      const placeholderFile = new File([""], ".folder-placeholder", { type: "text/plain" });
+      const folderPath = `${currentPath}${newFolderName}/.folder-placeholder`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('Images')
+        .upload(folderPath, placeholderFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Error creating folder:', uploadError);
+        toast.error('Failed to create folder');
+        return;
+      }
+
+      // Clear the input and refresh the view
+      setNewFolderName('');
+      setIsCreatingFolder(false);
+      fetchGalleryItems(currentPath);
+      toast.success(`Folder "${newFolderName}" created successfully`);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast.error('An unexpected error occurred while creating folder');
+    }
+  };
+
+  // Function to handle file upload to current directory
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+
+    const files = Array.from(e.target.files);
+    setUploading(true);
+
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      for (const file of files) {
+        const { data, error } = await supabase.storage
+          .from('Images')
+          .upload(`${currentPath}${file.name}`, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+
+        if (error) {
+          console.error(`Upload error for ${file.name}:`, error);
+          toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        } else {
+          toast.success(`${file.name} uploaded successfully!`);
+        }
+      }
+
+      // Refresh the list
+      fetchGalleryItems(currentPath);
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('An unexpected error occurred during upload');
+    } finally {
+      setUploading(false);
+      // Reset the file input
+      e.target.value = '';
     }
   };
 
@@ -282,62 +421,67 @@ export default function GalleryManager() {
         </div>
       </div>
 
-      {/* Upload section - only show at root level for now */}
-      {currentPath === 'gallery/' && (
-        <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-          <div className="flex flex-wrap gap-4 items-center">
-            <h3 className="text-lg font-medium text-slate-300">Upload New Gallery Image</h3>
+      {/* Upload and folder creation section - works in any directory */}
+      <div className="mb-6 p-4 bg-slate-800 rounded-lg">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+          <h3 className="text-lg font-medium text-slate-300 md:self-center">
+            Upload Images or Create Folders
+          </h3>
+
+          <div className="flex flex-col sm:flex-row gap-2 flex-1 w-full">
             <input
               type="file"
-              onChange={async (e) => {
-                if (!e.target.files || e.target.files.length === 0) return;
-
-                const file = e.target.files[0];
-                setUploading(true);
-
-                try {
-                  // Create Supabase client
-                  const supabase = createClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                  );
-
-                  const { data, error } = await supabase.storage
-                    .from('Images')
-                    .upload(`gallery/${file.name}`, file, {
-                      cacheControl: '3600',
-                      upsert: true
-                    });
-
-                  if (error) {
-                    console.error('Upload error:', error);
-                    toast.error('Failed to upload gallery image');
-                  } else {
-                    toast.success('Gallery image uploaded successfully!');
-                    // Refresh the list
-                    fetchGalleryItems(currentPath);
-                  }
-                } catch (err) {
-                  console.error('Upload error:', err);
-                  toast.error('An unexpected error occurred');
-                } finally {
-                  setUploading(false);
-                  // Reset the file input
-                  e.target.value = '';
-                }
-              }}
-              className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+              multiple
+              onChange={handleFileUpload}
+              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
               accept="image/*"
             />
-            {uploading && (
-              <div className="flex items-center text-slate-400">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
-                Uploading...
+
+            {isCreatingFolder ? (
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createNewFolder();
+                    if (e.key === 'Escape') setIsCreatingFolder(false);
+                  }}
+                  autoFocus
+                />
+                <button
+                  onClick={createNewFolder}
+                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setIsCreatingFolder(false)}
+                  className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
+                >
+                  Cancel
+                </button>
               </div>
+            ) : (
+              <button
+                onClick={() => setIsCreatingFolder(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+              >
+                Create Folder
+              </button>
             )}
           </div>
+
+          {uploading && (
+            <div className="flex items-center text-slate-400 self-start md:self-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
+              Uploading...
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Gallery items table */}
       <table className="min-w-full divide-y divide-slate-700">
