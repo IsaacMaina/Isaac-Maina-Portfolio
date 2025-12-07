@@ -2708,165 +2708,25 @@ export default function AdminDashboardPage() {
             transition={{ duration: 0.5 }}
             className="bg-slate-800 rounded-xl p-6 mb-8"
           >
-            <div className="flex flex-wrap gap-4 mb-6">
-              <h2 className="text-2xl font-bold text-accent-cyan flex-1">
-                Documents Management
+            <div className="flex flex-wrap justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-accent-cyan">
+                Document Management
               </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddDocument}
-                  className="btn btn-primary px-4 py-2 rounded-lg"
-                >
-                  Add Document
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : "Refresh View"}
+              </button>
             </div>
 
-            <div className="space-y-6">
-              {documentsData.map((doc, index) => (
-                <div key={doc.id} className="bg-slate-700 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">
-                      Document #{doc.id}
-                    </h3>
-                    <button
-                      onClick={() => handleRemoveDocument(index)}
-                      className="text-red-500 hover:text-red-400"
-                    >
-                      Remove Document
-                    </button>
-                  </div>
+            <p className="text-slate-400 mb-6">
+              View and manage all document files stored in Supabase. You can organize documents into folders and manage them directly.
+            </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-slate-300 mb-2">Title</label>
-                      <input
-                        type="text"
-                        value={doc.title}
-                        onChange={(e) =>
-                          handleDocumentChange(index, "title", e.target.value)
-                        }
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 mb-2">
-                        Category
-                      </label>
-                      <input
-                        type="text"
-                        value={doc.category || "documents"}
-                        onChange={(e) =>
-                          handleDocumentChange(
-                            index,
-                            "category",
-                            e.target.value
-                          )
-                        }
-                        list={`document-categories-list-${index}`}
-                        placeholder="Select or create category"
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                      <datalist id={`document-categories-list-${index}`}>
-                        <option value="documents">Documents</option>
-                        <option value="certificates">Certificates</option>
-                        <option value="resumes">Resumes</option>
-                        <option value="reports">Reports</option>
-                        {getUniqueCategories().map((category) => (
-                          <option key={category} value={category}>
-                            {category.charAt(0).toUpperCase() +
-                              category.slice(1)}
-                          </option>
-                        ))}
-                      </datalist>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 mb-2">
-                        File URL
-                      </label>
-                      <input
-                        type="text"
-                        value={doc.file}
-                        onChange={(e) =>
-                          handleDocumentChange(index, "file", e.target.value)
-                        }
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-slate-300 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={doc.description}
-                        onChange={(e) =>
-                          handleDocumentChange(
-                            index,
-                            "description",
-                            e.target.value
-                          )
-                        }
-                        rows={3}
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                    </div>
-
-                    {/* File upload area */}
-                    <div className="md:col-span-2">
-                      <label className="block text-slate-300 mb-2">
-                        Upload Document
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-4 items-center">
-                        <div className="flex-1 flex flex-col">
-                          <input
-                            type="file"
-                            onChange={(e) => handleDocumentUpload(e, index)}
-                            accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
-                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                          />
-                          <p className="text-xs text-slate-400 mt-1">
-                            Supported formats: PDF, DOC, DOCX, TXT, XLS, XLSX, PPT, PPTX, ZIP, RAR, JPG, JPEG, PNG
-                          </p>
-                        </div>
-                        {uploading &&
-                          index ===
-                            documentsData.findIndex((d) => d.id === doc.id) && (
-                            <div className="flex items-center text-slate-400">
-                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
-                              Uploading...
-                            </div>
-                          )}
-                      </div>
-
-                      {doc.file && (
-                        <div className="mt-3">
-                          <a
-                            href={doc.file}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-accent-cyan hover:underline inline-flex items-center"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            View Uploaded Document
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="border-t border-slate-700 pt-6">
+              <DocumentManager />
             </div>
           </motion.div>
         )}
