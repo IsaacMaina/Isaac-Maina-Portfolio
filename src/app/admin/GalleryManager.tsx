@@ -285,9 +285,6 @@ export default function GalleryManager() {
   };
 
   // Function to create a new folder
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-
   const createNewFolder = async () => {
     if (!newFolderName.trim()) {
       toast.error('Folder name cannot be empty');

@@ -25,8 +25,6 @@ export default function DocumentManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: '' });
   const [uploading, setUploading] = useState(false);
-  const [targetFolder, setTargetFolder] = useState<string>('rootdocs/'); // For upload target
-  const [existingFolders, setExistingFolders] = useState<string[]>([]);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
   const [useExistingFolder, setUseExistingFolder] = useState(true);
   const [newFolderName, setNewFolderName] = useState('');
