@@ -533,7 +533,7 @@ export default function DocumentManager() {
                 <select
                   value={targetFolder}
                   onChange={(e) => setTargetFolder(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200 mb-2 sm:mb-0 sm:mr-2 sm:rounded-r-none sm:mb-0"
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200"
                 >
                   <option value="rootdocs/">Root Directory</option>
                   {existingFolders.map((folder) => (
@@ -594,38 +594,40 @@ export default function DocumentManager() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 min-w-fit">
+            <div className="flex flex-col sm:flex-row gap-2">
               {isCreatingFolder ? (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="Folder name"
-                    className="px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                    placeholder="Enter folder name"
+                    className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') createNewFolder();
                       if (e.key === 'Escape') setIsCreatingFolder(false);
                     }}
                     autoFocus
                   />
-                  <button
-                    onClick={createNewFolder}
-                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
-                  >
-                    Create
-                  </button>
-                  <button
-                    onClick={() => setIsCreatingFolder(false)}
-                    className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
-                  >
-                    Cancel
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={createNewFolder}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                      Create
+                    </button>
+                    <button
+                      onClick={() => setIsCreatingFolder(false)}
+                      className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
                   onClick={() => setIsCreatingFolder(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   Create Folder
                 </button>
