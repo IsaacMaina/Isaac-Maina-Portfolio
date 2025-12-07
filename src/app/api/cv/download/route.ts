@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Look for CV/resume documents in specific locations
-    // Try common paths where CV might be stored
+    // Look for CV/resume documents in common locations
+    // This is just to provide a default download if a specific CV exists
     const possiblePaths = [
       'documents/career/CV.pdf',
       'documents/career/Resume.pdf',
-      'documents/career/cv.pdf', 
+      'documents/career/cv.pdf',
       'documents/career/resume.pdf',
       'documents/CV.pdf',
       'documents/Resume.pdf',
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     let downloadUrl = null;
     let fileName = 'CV.pdf';
 
-    // Look for the CV file in storage
+    // Try to find an existing CV file in storage
     for (const path of possiblePaths) {
       const { data, error } = await supabase.storage
         .from('Images') // Using Images bucket
@@ -55,22 +55,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (!downloadUrl) {
-      // If no CV found in standard locations, return a 404
-      return Response.json(
-        { error: 'CV document not found in standard locations' }, 
-        { status: 404 }
-      );
+    if (downloadUrl) {
+      // If a CV file exists in storage, redirect to its download URL
+      return Response.redirect(downloadUrl);
+    } else {
+      // If no CV file exists in storage, default to the documents page
+      // where users can browse for CV/resume documents
+      return Response.redirect(`${request.nextUrl.origin}/documents`);
     }
-
-    // Redirect to the Supabase download URL
-    // This will trigger the browser to download the file directly
-    return Response.redirect(downloadUrl);
   } catch (error) {
-    console.error('Error downloading CV:', error);
-    return Response.json(
-      { error: 'Failed to download CV' }, 
-      { status: 500 }
-    );
+    console.error('Error in CV download route:', error);
+
+    // On error, redirect to the documents page rather than showing an error
+    return Response.redirect(`${request.nextUrl.origin}/documents`);
   }
 }
