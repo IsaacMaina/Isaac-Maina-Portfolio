@@ -50,7 +50,7 @@ export default function HomeContent({ profile }: { profile: ProfileData }) {
                   href="/api/cv/download"
                   className="btn btn-primary px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-medium hover:scale-[1.03] transition-transform duration-300"
                 >
-                  Download CV
+                  View Career Documents
                 </Link>
                 <Link
                   href="/projects"
