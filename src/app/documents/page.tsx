@@ -18,16 +18,6 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [pathHistory, setPathHistory] = useState<string[]>(['rootdocs/']); // Changed to match document-reader-app
 
-  // For initial navigation to a specific folder, use useEffect to check URL parameters after mount
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialFolder = urlParams.get('initialFolder');
-    if (initialFolder) {
-      setCurrentPath(`rootdocs/${initialFolder}/`);
-      setPathHistory([`rootdocs/${initialFolder}/`]);
-    }
-  }, []);
-
   // Fetch items from Supabase storage
   useEffect(() => {
     const fetchItems = async () => {
