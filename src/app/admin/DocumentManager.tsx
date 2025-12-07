@@ -282,6 +282,65 @@ export default function DocumentManager() {
     }
   };
 
+  const deleteFolder = async (folderPath: string) => {
+    const folderName = folderPath.split('/').filter(p => p).pop() || folderPath;
+    if (!confirm(`Are you sure you want to delete this folder: ${folderName}? This will delete ALL files inside this folder.`)) {
+      return;
+    }
+
+    try {
+      // Create Supabase client for browser
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // First, list all items in the folder
+      const { data: items, error: listError } = await supabase.storage
+        .from('Images')
+        .list(folderPath, {
+          limit: 1000,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (listError) {
+        console.error('Error listing folder contents:', listError);
+        toast.error('Failed to access folder contents');
+        return;
+      }
+
+      if (items && items.length > 0) {
+        // Collect all items to delete
+        const itemsToDelete: string[] = items
+          .filter(item => item.name && !item.name.startsWith('.')) // Exclude hidden files/folders
+          .map(item => `${folderPath}${item.name}`);
+
+        if (itemsToDelete.length > 0) {
+          // Delete all items in the folder
+          const { error: deleteError } = await supabase.storage
+            .from('Images')
+            .remove(itemsToDelete);
+
+          if (deleteError) {
+            console.error('Error deleting items in folder:', deleteError);
+            toast.error('Failed to delete some items in the folder');
+            return;
+          }
+
+          toast.success(`Deleted ${itemsToDelete.length} items in folder`);
+        }
+      }
+
+      // Refresh the current view
+      fetchDocumentItems(currentPath);
+      toast.success(`Folder '${folderName}' deleted successfully`);
+    } catch (err) {
+      console.error('Error deleting folder:', err);
+      toast.error('An unexpected error occurred while deleting folder');
+    }
+  };
+
   const startEditing = (item: DocumentItem) => {
     setEditingId(item.id);
     setEditData({
@@ -627,7 +686,7 @@ export default function DocumentManager() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation(); // Prevent event bubbling to row
-                          deleteDocument(item.path, item.type);
+                          deleteFolder(item.path);
                         }}
                         className="text-red-500 hover:text-red-400"
                         title="Delete folder"

@@ -2778,29 +2778,40 @@ export default function AdminDashboardPage() {
                       <label className="block text-slate-300 mb-2">
                         Upload Document
                       </label>
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <input
-                          type="file"
-                          onChange={(e) => handleDocumentUpload(e, index)}
-                          accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
-                          className="flex-1 px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                        />
+                      <div className="flex flex-col sm:flex-row gap-4 items-center">
+                        <div className="flex-1 flex flex-col">
+                          <input
+                            type="file"
+                            onChange={(e) => handleDocumentUpload(e, index)}
+                            accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
+                            className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-accent-cyan"
+                          />
+                          <p className="text-xs text-slate-400 mt-1">
+                            Supported formats: PDF, DOC, DOCX, TXT, XLS, XLSX, PPT, PPTX, ZIP, RAR, JPG, JPEG, PNG
+                          </p>
+                        </div>
                         {uploading &&
                           index ===
                             documentsData.findIndex((d) => d.id === doc.id) && (
-                            <span className="text-slate-400">Uploading...</span>
+                            <div className="flex items-center text-slate-400">
+                              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
+                              Uploading...
+                            </div>
                           )}
                       </div>
 
                       {doc.file && (
-                        <div className="mt-2">
+                        <div className="mt-3">
                           <a
                             href={doc.file}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-accent-cyan hover:underline inline-flex items-center"
                           >
-                            View Document
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            View Uploaded Document
                           </a>
                         </div>
                       )}
