@@ -18,6 +18,7 @@ export default function AdminDashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileFileInputRef = useRef<HTMLInputElement>(null);
   const aboutFileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -926,8 +927,8 @@ export default function AdminDashboardPage() {
     });
   };
 
-  // Account image upload function
-  const handleAccountImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Profile image upload function (for home page)
+  const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!session?.user?.id) {
       toast.error("User not authenticated");
       return;
@@ -947,17 +948,17 @@ export default function AdminDashboardPage() {
           // Extract the path after the supabase URL
           const pathStart = `${supabaseUrl}/storage/v1/object/public/Images/`;
           const imagePath = result.url.replace(pathStart, "");
-          setAccountData(prev => ({ ...prev, image: imagePath }));
+          setHomeData(prev => ({ ...prev, image: imagePath }));
         } else {
           // If the URL doesn't start with our SUPABASE_URL, it might already be a path
-          setAccountData(prev => ({ ...prev, image: result.url }));
+          setHomeData(prev => ({ ...prev, image: result.url }));
         }
         toast.success("Profile image uploaded successfully!");
       } else {
         toast.error(result.error || "Failed to upload image");
       }
     } catch (error) {
-      console.error("Account image upload error:", error);
+      console.error("Profile image upload error:", error);
       if (error instanceof Error && error.message.includes("Network")) {
         toast.error("No internet connection. Please check your network and try again.");
       } else if (error instanceof Error && error.message.includes("Server error")) {
@@ -970,8 +971,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const triggerAccountFileSelect = () => {
-    fileInputRef.current?.click();
+  const triggerProfileFileSelect = () => {
+    profileFileInputRef.current?.click();
   };
 
   // Document upload function
@@ -1697,7 +1698,7 @@ export default function AdminDashboardPage() {
                   <input
                     type="file"
                     ref={fileInputRef}
-                    onChange={handleAccountImageUpload}
+                    onChange={handleImageUpload}
                     accept="image/*"
                     className="hidden"
                   />
