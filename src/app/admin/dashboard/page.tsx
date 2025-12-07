@@ -242,28 +242,92 @@ export default function AdminDashboardPage() {
 
   const fetchGalleryData = async () => {
     try {
-      const response = await fetch("/api/admin/gallery");
+      // Create Supabase client for browser
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
 
-      if (!response.ok) {
-        if (response.status === 0) {
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          const errorText = await response.text();
-          throw new Error(
-            `Server error: ${response.status} - ${
-              errorText || "Internal server error"
-            }`
-          );
-        }
-        throw new Error("Failed to fetch gallery data");
+      // List all items in the 'gallery' folder and subfolders from Supabase storage
+      const { data: topLevelItems, error: topLevelError } = await supabase.storage
+        .from('Images') // Using the Images bucket
+        .list('gallery/', {
+          limit: 1000,
+          offset: 0,
+          sortBy: { column: 'name', order: 'asc' },
+        });
+
+      if (topLevelError) {
+        console.error('Error fetching top-level gallery items from Supabase storage:', topLevelError);
+        throw new Error("Failed to fetch gallery data from storage");
       }
 
-      const data = await response.json();
-      if (data && data.length > 0) {
-        setGalleryData(data);
+      const galleryItemsFromStorage = [];
+
+      // Process top-level items (both files and folders in gallery/)
+      if (topLevelItems) {
+        for (const item of topLevelItems) {
+          if (item.type === 'folder') {
+            // This is a folder - list its contents to get the actual gallery items
+            const { data: folderContents, error: folderError } = await supabase.storage
+              .from('Images')
+              .list(`gallery/${item.name}/`, {
+                limit: 1000,
+                offset: 0,
+                sortBy: { column: 'name', order: 'asc' },
+              });
+
+            if (folderError) {
+              console.error(`Error fetching contents of folder ${item.name}:`, folderError);
+              continue;
+            }
+
+            if (folderContents) {
+              // Create gallery items for each file in the folder
+              for (const folderFile of folderContents) {
+                if (folderFile.type !== 'folder') { // Only include actual files, not subfolders
+                  const { data: { publicUrl } } = supabase.storage
+                    .from('Images')
+                    .getPublicUrl(`gallery/${item.name}/${folderFile.name}`);
+
+                  galleryItemsFromStorage.push({
+                    id: Date.now() + Math.floor(Math.random() * 10000) + galleryItemsFromStorage.length, // Generate temporary ID
+                    src: publicUrl,
+                    alt: folderFile.name.replace(/\.[^/.]+$/, ""), // Remove extension for alt text
+                    category: item.name, // Use folder name as category
+                    name: folderFile.name,
+                    type: 'file'
+                  });
+                }
+              }
+            }
+          } else {
+            // This is a file directly in the gallery folder
+            const { data: { publicUrl } } = supabase.storage
+              .from('Images')
+              .getPublicUrl(`gallery/${item.name}`);
+
+            galleryItemsFromStorage.push({
+              id: Date.now() + Math.floor(Math.random() * 10000) + galleryItemsFromStorage.length, // Generate unique ID
+              src: publicUrl,
+              alt: item.name.replace(/\.[^/.]+$/, ""), // Remove extension for alt text
+              category: 'General', // For files directly in gallery folder
+              name: item.name,
+              type: 'file'
+            });
+          }
+        }
+      }
+
+      // Set the gallery data from storage
+      if (galleryItemsFromStorage && galleryItemsFromStorage.length > 0) {
+        setGalleryData(galleryItemsFromStorage);
+      } else {
+        // If no gallery items found, initialize with an empty array
+        setGalleryData([]);
       }
     } catch (error) {
-      console.error("Error fetching gallery data:", error);
+      console.error("Error fetching gallery data from storage:", error);
       if (error.message.includes("Network error")) {
         toast.error(
           "No internet connection. Please check your network and try again."
@@ -271,7 +335,7 @@ export default function AdminDashboardPage() {
       } else if (error.message.includes("Server error")) {
         toast.error(`Server error occurred: ${error.message}`);
       } else {
-        toast.error("Failed to load gallery data");
+        toast.error("Failed to load gallery data from storage");
       }
     }
   };
@@ -604,64 +668,6 @@ export default function AdminDashboardPage() {
     aboutFileInputRef.current?.click();
   };
 
-  // --- GALLERY TAB FUNCTIONS ---
-  const handleGalleryChange = (index: number, field: string, value: string) => {
-    const updatedGallery = [...galleryData];
-    updatedGallery[index] = { ...updatedGallery[index], [field]: value };
-    setGalleryData(updatedGallery);
-  };
-
-  const handleAddGalleryItem = () => {
-    const newGalleryItem = {
-      id: Date.now(), // Use timestamp for unique ID
-      src: "/gallery/new-item.jpg",
-      alt: "New gallery item",
-      category: "gallery",
-    };
-    setGalleryData([newGalleryItem, ...galleryData]); // Prepend to the beginning of the array
-  };
-
-  const handleRemoveGalleryItem = (index: number) => {
-    setGalleryData(galleryData.filter((_, i) => i !== index));
-  };
-
-  const handleDeleteGalleryItem = async (id: number, src: string) => {
-    try {
-      const response = await fetch("/api/admin/gallery", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id, src }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 0) {
-          // Network error (no connection)
-          throw new Error("Network error: Unable to connect to the server");
-        } else if (response.status >= 500) {
-          // Server error
-          const errorText = await response.text();
-          throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete gallery item");
-      }
-
-      // Also remove from the local state
-      setGalleryData(galleryData.filter((item) => item.id !== id));
-      toast.success("Gallery item deleted successfully!");
-    } catch (error) {
-      console.error("Error deleting gallery item:", error);
-      if (error.message.includes("Network error")) {
-        toast.error("No internet ...");
-      } else if (error.message.includes("Server error")) {
-        toast.error(`Server error occurred: ${error.message}`);
-      } else {
-        toast.error("Failed to delete gallery item");
-      }
-    }
-  };
 
   const handleGalleryImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -1385,25 +1391,11 @@ export default function AdminDashboardPage() {
 
         toast.success("Projects data updated successfully!");
       } else if (activeTab === "gallery") {
-        // Save gallery data
-        const response = await fetch("/api/admin/gallery", {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(galleryData),
-        });
+        // For gallery items managed in Supabase storage, the save essentially just confirms the data has been updated in state
+        // The actual gallery data comes from storage, so we just need to verify the state is saved correctly
+        // In a more complex scenario, this might sync gallery metadata with the database
 
-        if (!response.ok) {
-          if (response.status === 0) {
-            throw new Error("Network error: Unable to connect to the server");
-          } else if (response.status >= 500) {
-            const errorText = await response.text();
-            throw new Error(`Server error: ${response.status} - ${errorText || 'Internal server error'}`);
-          }
-          throw new Error("Failed to save gallery data");
-        }
-
+        // Simply confirm the data is up to date in state
         toast.success("Gallery data updated successfully!");
       } else if (activeTab === "documents") {
         // For documents managed in Supabase storage, the save essentially just confirms the data has been updated in state
@@ -2479,223 +2471,25 @@ export default function AdminDashboardPage() {
             transition={{ duration: 0.5 }}
             className="bg-slate-800 rounded-xl p-6 mb-8"
           >
-            <div className="flex flex-wrap gap-4 mb-6">
-              <h2 className="text-2xl font-bold text-accent-cyan flex-1">
+            <div className="flex flex-wrap justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-accent-cyan">
                 Gallery Management
               </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddGalleryItem}
-                  className="btn btn-primary px-4 py-2 rounded-lg"
-                >
-                  Add Gallery Item
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {galleryData.map((item, index) => (
-                <div key={item.id} className="bg-slate-700 rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold">
-                      Gallery Item #{item.id}
-                    </h3>
-                    <button
-                      onClick={() => handleRemoveGalleryItem(index)}
-                      className="text-red-500 hover:text-red-400"
-                    >
-                      Remove Item
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-slate-300 mb-2">
-                        Image URL
-                      </label>
-                      <input
-                        type="text"
-                        value={item.src}
-                        onChange={(e) =>
-                          handleGalleryChange(index, "src", e.target.value)
-                        }
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 mb-2">
-                        Alt Text
-                      </label>
-                      <input
-                        type="text"
-                        value={item.alt}
-                        onChange={(e) =>
-                          handleGalleryChange(index, "alt", e.target.value)
-                        }
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 mb-2">
-                        Category
-                      </label>
-                      <input
-                        type="text"
-                        value={item.category}
-                        onChange={(e) =>
-                          handleGalleryChange(index, "category", e.target.value)
-                        }
-                        list={`categories-list-${index}`}
-                        placeholder="Type or select category"
-                        className="w-full px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                      />
-                      <datalist id={`categories-list-${index}`}>
-                        <option value="">Select Category</option>
-                        {getUniqueCategories().map((category) => (
-                          <option key={category} value={category}>
-                            {category.charAt(0).toUpperCase() +
-                              category.slice(1)}
-                          </option>
-                        ))}
-                      </datalist>
-                    </div>
-
-                    {/* Delete button for gallery item */}
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() =>
-                          handleDeleteGalleryItem(item.id, item.src)
-                        }
-                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Image preview and upload */}
-                  <div className="mt-4">
-                    <div className="flex flex-col sm:flex-row gap-4 items-start">
-                      <div className="flex-1">
-                        <label className="block text-slate-300 mb-2">
-                          Upload New Image
-                        </label>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="file"
-                            onChange={(e) => handleGalleryImageUpload(e, index)}
-                            accept="image/*"
-                            className="flex-1 px-3 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                          />
-                          {uploading &&
-                            index ===
-                              galleryData.findIndex(
-                                (g) => g.id === item.id
-                              ) && (
-                              <span className="text-slate-400">
-                                Uploading...
-                              </span>
-                            )}
-                        </div>
-                      </div>
-
-                      {item.src && (
-                        <div className="flex items-center">
-                          <img
-                            src={
-                              item.src.startsWith("http")
-                                ? item.src
-                                : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Images/${item.src}`
-                            }
-                            alt={item.alt}
-                            className="w-16 h-16 rounded object-cover border border-accent-cyan"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Bulk Upload Section */}
-            <div className="mt-8 pt-6 border-t border-slate-700">
-              <h3 className="text-xl font-semibold mb-4 text-accent-cyan">
-                Bulk Upload Images
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Select Category
-                  </label>
-                  <input
-                    type="text"
-                    value={bulkUploadCategory}
-                    onChange={(e) => setBulkUploadCategory(e.target.value)}
-                    list="bulk-upload-categories"
-                    placeholder="Enter or select category"
-                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                  />
-                  <datalist id="bulk-upload-categories">
-                    <option value="">Select Category</option>
-                    {getUniqueCategories().map((category) => (
-                      <option key={`bulk-${category}`} value={category}>
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
-                      </option>
-                    ))}
-                  </datalist>
-                </div>
-
-                <div>
-                  <label className="block text-slate-300 mb-2">
-                    Select Images
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleBulkFileChange}
-                    accept="image/*"
-                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-1 focus:ring-accent-cyan"
-                  />
-                </div>
-              </div>
-
-              {bulkUploadFiles.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-slate-400">
-                    Selected {bulkUploadFiles.length} image
-                    {bulkUploadFiles.length !== 1 ? "s" : ""}
-                  </p>
-                </div>
-              )}
-
               <button
-                onClick={handleBulkUpload}
-                disabled={
-                  isBulkUploading ||
-                  !bulkUploadFiles.length ||
-                  !bulkUploadCategory.trim()
-                }
-                className={`px-4 py-2 rounded-lg ${
-                  isBulkUploading ||
-                  !bulkUploadFiles.length ||
-                  !bulkUploadCategory.trim()
-                    ? "bg-slate-600 cursor-not-allowed"
-                    : "bg-accent-cyan text-slate-900 hover:bg-opacity-90"
-                }`}
+                onClick={handleSave}
+                disabled={saving}
+                className="btn btn-secondary px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isBulkUploading ? "Uploading..." : "Upload All Images"}
+                {saving ? "Saving..." : "Refresh View"}
               </button>
+            </div>
+
+            <p className="text-slate-400 mb-6">
+              View and manage all gallery images stored in Supabase. You can organize images into folders by category.
+            </p>
+
+            <div className="border-t border-slate-700 pt-6">
+              <GalleryManager />
             </div>
           </motion.div>
         )}
