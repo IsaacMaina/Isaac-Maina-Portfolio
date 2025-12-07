@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth/authConfig';
 import { getDb } from '@/lib/db-connector';
 import { skillCategories, skills as dbSkills, additionalSkills as dbAdditionalSkills } from '@/db/schema';
 import { eq, asc, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 
 // Define the skill type
 interface Skill {
@@ -137,6 +138,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Cache invalidation after update
+    revalidateTag('skills');
     return Response.json({ message: 'Skills updated successfully' });
   } catch (error) {
     console.error('Error updating skills:', error);

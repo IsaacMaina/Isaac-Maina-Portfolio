@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/authConfig';
 import { createClient } from '@supabase/supabase-js';
+import { revalidateTag } from 'next/cache';
 
 // GET request to fetch all gallery items from Supabase storage
 export async function GET(request: NextRequest) {
@@ -137,6 +138,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Cache invalidation after update
+    revalidateTag('gallery');
     return Response.json({ message: 'Gallery updated successfully' });
   } catch (error) {
     console.error('Error updating gallery:', error);
@@ -189,7 +192,8 @@ export async function DELETE(request: NextRequest) {
       return Response.json({ error: 'Failed to delete gallery item from storage' }, { status: 500 });
     }
 
-    // Return success message
+    // Cache invalidation after deletion
+    revalidateTag('gallery');
     return Response.json({
       message: 'Gallery item deleted successfully',
     });

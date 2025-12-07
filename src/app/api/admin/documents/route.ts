@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth/authConfig';
 import { getDb } from '@/lib/db-connector';
 import { documents } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 
 // Define a type alias for document without category for compatibility
 type DocumentWithoutCategory = Omit<typeof documents.$inferInsert, 'id' | 'category' | 'createdAt' | 'updatedAt'>;
@@ -82,6 +83,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Cache invalidation after update
+    revalidateTag('documents');
     return Response.json({ message: 'Documents updated successfully' });
   } catch (error) {
     console.error('Error updating documents:', error);
@@ -101,13 +104,12 @@ export async function DELETE(request: NextRequest) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const db = getDb();
     const { id, file } = await request.json();
 
     if (!id && !file) {
       return Response.json({ error: 'Either id or file is required' }, { status: 400 });
     }
-
-    const db = getDb();
 
     // Delete from database
     let deletionResult;
@@ -117,6 +119,8 @@ export async function DELETE(request: NextRequest) {
       deletionResult = await db.delete(documents).where(eq(documents.file, file));
     }
 
+    // Cache invalidation after deletion
+    revalidateTag('documents');
     return Response.json({
       message: 'Document deleted successfully',
       deletionResult

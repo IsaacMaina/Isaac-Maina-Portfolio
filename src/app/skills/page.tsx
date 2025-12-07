@@ -1,6 +1,9 @@
 import { getSkillsData as getSkillsFromDB } from "@/lib/db-service";
 import SkillsContentClient from "./SkillsContentClient";
 
+// Revalidate every 30 seconds to ensure updates appear
+export const revalidate = 30;
+
 // Define the skill structure
 interface Skill {
   name: string;

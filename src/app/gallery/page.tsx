@@ -3,6 +3,9 @@ import AnimatedSection from "@/components/AnimatedSection";
 import GalleryWrapper from './GalleryWrapper';
 import { getGalleryAlbumsFromStorage } from '@/lib/supabase/gallery-service';
 
+// Revalidate every 30 seconds to ensure updates appear
+export const revalidate = 30;
+
 export default async function GalleryPage() {
   // Fetch gallery albums from Supabase storage on the server
   const galleryAlbums = await getGalleryAlbumsFromStorage();

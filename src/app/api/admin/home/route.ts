@@ -7,12 +7,13 @@ import { userProfiles } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { revalidateTag } from 'next/cache';
 
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -80,7 +81,7 @@ export async function PUT(request: NextRequest) {
   try {
     // Verify authentication
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -195,8 +196,14 @@ export async function PUT(request: NextRequest) {
         })
         .returning();
 
+      // Cache invalidation after update
+      revalidateTag('home');
+
       return Response.json(newProfile[0]);
     }
+
+    // Cache invalidation after update
+    revalidateTag('home');
 
     return Response.json(updatedProfile[0]);
   } catch (error) {

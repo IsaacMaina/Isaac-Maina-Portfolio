@@ -2,6 +2,9 @@ import { getAboutData } from "@/lib/db-service";
 import { createClient } from "@supabase/supabase-js";
 import AboutContentClient from "./AboutContentClient";
 
+// Revalidate every 30 seconds to ensure updates appear
+export const revalidate = 30;
+
 // Define the certification structure to match the expected format
 interface Certification {
   id: number;

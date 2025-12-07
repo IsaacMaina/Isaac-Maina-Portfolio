@@ -7,6 +7,7 @@ import { userProfiles, education, experience, certifications } from '@/db/schema
 import { eq, desc, asc } from 'drizzle-orm';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { revalidateTag } from 'next/cache';
 
 export async function GET(request: NextRequest) {
   try {
@@ -306,7 +307,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Return updated data
+    // Return updated data with cache invalidation
+    revalidateTag('about');
     return Response.json({ success: true, message: 'About data updated successfully' });
   } catch (error) {
     console.error('Error updating about data:', error);

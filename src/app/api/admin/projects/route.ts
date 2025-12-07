@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth/authConfig';
 import { getDb } from '@/lib/db-connector';
 import { projects as projectsSchema } from '@/db/schema';
 import { eq, asc, sql } from 'drizzle-orm';
+import { revalidateTag } from 'next/cache';
 
 // Define the project structure that matches the database schema
 interface Project {
@@ -118,6 +119,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Cache invalidation after update
+    revalidateTag('projects');
     return Response.json({ message: 'Projects updated successfully' });
   } catch (error) {
     console.error('Error updating projects:', error);
@@ -146,6 +149,8 @@ export async function DELETE(request: NextRequest) {
       .delete(projectsSchema)
       .where(eq(projectsSchema.id, id));
 
+    // Cache invalidation after deletion
+    revalidateTag('projects');
     return Response.json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Error deleting project:', error);
