@@ -25,9 +25,62 @@ export default function GalleryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ name: '' });
   const [uploading, setUploading] = useState(false);
+  const [targetFolder, setTargetFolder] = useState<string>('gallery/'); // For upload target
+  const [existingFolders, setExistingFolders] = useState<string[]>([]);
+  const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
+  // Fetch existing folders when current path changes
   useEffect(() => {
+    const fetchFolders = async () => {
+      setIsLoadingFolders(true);
+      try {
+        // Create Supabase client for browser
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        // List all items in gallery folder to extract folders
+        const { data, error } = await supabase.storage
+          .from('Images')
+          .list('gallery/', {
+            limit: 100,
+            offset: 0,
+            sortBy: { column: 'name', order: 'asc' },
+          });
+
+        if (error) {
+          console.error('Error fetching folders:', error);
+          setExistingFolders([]);
+          return;
+        }
+
+        if (data) {
+          // Filter out files and keep only folders (items without extensions)
+          const folders = data
+            .filter(item => !item.name.includes('.')) // Folders don't have extensions
+            .map(item => item.name);
+          setExistingFolders(folders);
+        } else {
+          setExistingFolders([]);
+        }
+      } catch (err) {
+        console.error('Error in fetchFolders:', err);
+        setExistingFolders([]);
+      } finally {
+        setIsLoadingFolders(false);
+      }
+    };
+
+    fetchFolders();
     fetchGalleryItems(currentPath);
+  }, [currentPath]);
+
+  // Update targetFolder when currentPath changes
+  useEffect(() => {
+    setTargetFolder(currentPath);
   }, [currentPath]);
 
   const fetchGalleryItems = async (path: string) => {
@@ -276,7 +329,7 @@ export default function GalleryManager() {
     }
   };
 
-  // Function to handle file upload to current directory
+  // Function to handle file upload to selected folder
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
 
@@ -290,9 +343,11 @@ export default function GalleryManager() {
       );
 
       for (const file of files) {
+        // Use targetFolder for upload location instead of currentPath
+        const uploadPath = targetFolder.endsWith('/') ? targetFolder : `${targetFolder}/`;
         const { data, error } = await supabase.storage
           .from('Images')
-          .upload(`${currentPath}${file.name}`, file, {
+          .upload(`${uploadPath}${file.name}`, file, {
             cacheControl: '3600',
             upsert: true
           });
@@ -306,7 +361,7 @@ export default function GalleryManager() {
       }
 
       // Refresh the list
-      fetchGalleryItems(currentPath);
+      fetchGalleryItems(targetFolder); // Refresh with the target folder
     } catch (err) {
       console.error('Upload error:', err);
       toast.error('An unexpected error occurred during upload');
@@ -423,59 +478,82 @@ export default function GalleryManager() {
 
       {/* Upload and folder creation section - works in any directory */}
       <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <h3 className="text-lg font-medium text-slate-300 md:self-center">
+        <div className="flex flex-col items-start gap-4">
+          <h3 className="text-lg font-medium text-slate-300">
             Upload Images or Create Folders
           </h3>
 
-          <div className="flex flex-col sm:flex-row gap-2 flex-1 w-full">
-            <input
-              type="file"
-              multiple
-              onChange={handleFileUpload}
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
-              accept="image/*"
-            />
+          <div className="flex flex-col sm:flex-row gap-4 w-full items-start">
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Upload to folder:
+              </label>
 
-            {isCreatingFolder ? (
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={targetFolder}
+                  onChange={(e) => setTargetFolder(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200 mb-2 sm:mb-0 sm:mr-2 sm:rounded-r-none sm:mb-0"
+                >
+                  <option value="gallery/">Root Directory</option>
+                  {existingFolders.map((folder) => (
+                    <option key={folder} value={`gallery/${folder}/`}>
+                      {folder}
+                    </option>
+                  ))}
+                </select>
+
                 <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Folder name"
-                  className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createNewFolder();
-                    if (e.key === 'Escape') setIsCreatingFolder(false);
-                  }}
-                  autoFocus
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                  accept="image/*"
                 />
-                <button
-                  onClick={createNewFolder}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => setIsCreatingFolder(false)}
-                  className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
-                >
-                  Cancel
-                </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setIsCreatingFolder(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-              >
-                Create Folder
-              </button>
-            )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 min-w-fit">
+              {isCreatingFolder ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="Folder name"
+                    className="px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') createNewFolder();
+                      if (e.key === 'Escape') setIsCreatingFolder(false);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={createNewFolder}
+                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => setIsCreatingFolder(false)}
+                    className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsCreatingFolder(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  Create Folder
+                </button>
+              )}
+            </div>
           </div>
 
           {uploading && (
-            <div className="flex items-center text-slate-400 self-start md:self-center">
+            <div className="flex items-center text-slate-400">
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
               Uploading...
             </div>

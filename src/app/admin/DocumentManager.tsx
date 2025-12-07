@@ -35,7 +35,11 @@ export default function DocumentManager() {
   // State for creating new folders within any directory
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
-  // Fetch existing folders in the current path
+  // State for existing folder dropdown and upload target
+  const [targetFolder, setTargetFolder] = useState<string>('rootdocs/'); // For upload target
+  const [existingFolders, setExistingFolders] = useState<string[]>([]);
+
+  // Fetch existing folders in the root documents directory
   useEffect(() => {
     const fetchFolders = async () => {
       setIsLoadingFolders(true);
@@ -46,9 +50,10 @@ export default function DocumentManager() {
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
         );
 
+        // List all items in rootdocs folder to get all available folders
         const { data, error: listError } = await supabase.storage
           .from('Images') // Using the same bucket as images
-          .list(currentPath, {
+          .list('rootdocs/', {
             limit: 100,
             offset: 0,
             sortBy: { column: 'name', order: 'asc' },
@@ -66,9 +71,6 @@ export default function DocumentManager() {
             .filter(item => !item.name.includes('.')) // Folders don't have extensions
             .map(item => item.name);
           setExistingFolders(folders);
-
-          // Set the target folder to the current path
-          setTargetFolder(currentPath);
         } else {
           setExistingFolders([]);
         }
@@ -82,6 +84,11 @@ export default function DocumentManager() {
 
     fetchFolders();
     fetchDocumentItems(currentPath);
+  }, [currentPath]);
+
+  // Update targetFolder when currentPath changes
+  useEffect(() => {
+    setTargetFolder(currentPath);
   }, [currentPath]);
 
   const createFolder = async (folderName: string) => {
@@ -513,98 +520,123 @@ export default function DocumentManager() {
 
       {/* Upload and folder creation section - works in any directory */}
       <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <h3 className="text-lg font-medium text-slate-300 md:self-center">
+        <div className="flex flex-col items-start gap-4">
+          <h3 className="text-lg font-medium text-slate-300">
             Upload Documents or Create Folders
           </h3>
 
-          <div className="flex flex-col sm:flex-row gap-2 flex-1 w-full">
-            <input
-              type="file"
-              multiple
-              onChange={async (e) => {
-                if (!e.target.files || e.target.files.length === 0) return;
+          <div className="flex flex-col sm:flex-row gap-4 w-full items-start">
+            <div className="flex-1 w-full">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Upload to folder:
+              </label>
 
-                const files = Array.from(e.target.files);
-                setUploading(true);
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={targetFolder}
+                  onChange={(e) => setTargetFolder(e.target.value)}
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan text-slate-200 mb-2 sm:mb-0 sm:mr-2 sm:rounded-r-none sm:mb-0"
+                >
+                  <option value="rootdocs/">Root Directory</option>
+                  {existingFolders.map((folder) => (
+                    <option key={folder} value={`rootdocs/${folder}/`}>
+                      {folder}
+                    </option>
+                  ))}
+                </select>
 
-                try {
-                  // Create Supabase client
-                  const supabase = createClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-                  );
-
-                  for (const file of files) {
-                    const { data, error } = await supabase.storage
-                      .from('Images')
-                      .upload(`${currentPath}${file.name}`, file, {
-                        cacheControl: '3600',
-                        upsert: true
-                      });
-
-                    if (error) {
-                      console.error(`Upload error for ${file.name}:`, error);
-                      toast.error(`Failed to upload ${file.name}: ${error.message}`);
-                    } else {
-                      toast.success(`${file.name} uploaded successfully!`);
-                    }
-                  }
-
-                  // Refresh the list
-                  fetchDocumentItems(currentPath);
-                } catch (err) {
-                  console.error('Upload error:', err);
-                  toast.error('An unexpected error occurred');
-                } finally {
-                  setUploading(false);
-                  // Reset the file input
-                  e.target.value = '';
-                }
-              }}
-              className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
-              accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
-            />
-
-            {isCreatingFolder ? (
-              <div className="flex gap-2 w-full sm:w-auto">
                 <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Folder name"
-                  className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') createNewFolder();
-                    if (e.key === 'Escape') setIsCreatingFolder(false);
+                  type="file"
+                  multiple
+                  onChange={async (e) => {
+                    if (!e.target.files || e.target.files.length === 0) return;
+
+                    const files = Array.from(e.target.files);
+                    setUploading(true);
+
+                    try {
+                      // Create Supabase client
+                      const supabase = createClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                      );
+
+                      for (const file of files) {
+                        // Use targetFolder for upload location instead of currentPath
+                        const uploadPath = targetFolder.endsWith('/') ? targetFolder : `${targetFolder}/`;
+                        const { data, error } = await supabase.storage
+                          .from('Images')
+                          .upload(`${uploadPath}${file.name}`, file, {
+                            cacheControl: '3600',
+                            upsert: true
+                          });
+
+                        if (error) {
+                          console.error(`Upload error for ${file.name}:`, error);
+                          toast.error(`Failed to upload ${file.name}: ${error.message}`);
+                        } else {
+                          toast.success(`${file.name} uploaded successfully!`);
+                        }
+                      }
+
+                      // Refresh the list
+                      fetchDocumentItems(targetFolder); // Refresh with the target folder
+                    } catch (err) {
+                      console.error('Upload error:', err);
+                      toast.error('An unexpected error occurred');
+                    } finally {
+                      setUploading(false);
+                      // Reset the file input
+                      e.target.value = '';
+                    }
                   }}
-                  autoFocus
+                  className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                  accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png"
                 />
-                <button
-                  onClick={createNewFolder}
-                  className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => setIsCreatingFolder(false)}
-                  className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
-                >
-                  Cancel
-                </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setIsCreatingFolder(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-              >
-                Create Folder
-              </button>
-            )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 min-w-fit">
+              {isCreatingFolder ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="Folder name"
+                    className="px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-cyan"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') createNewFolder();
+                      if (e.key === 'Escape') setIsCreatingFolder(false);
+                    }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={createNewFolder}
+                    className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+                  >
+                    Create
+                  </button>
+                  <button
+                    onClick={() => setIsCreatingFolder(false)}
+                    className="px-3 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsCreatingFolder(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  Create Folder
+                </button>
+              )}
+            </div>
           </div>
 
           {uploading && (
-            <div className="flex items-center text-slate-400 self-start md:self-center">
+            <div className="flex items-center text-slate-400">
               <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-cyan mr-2"></div>
               Uploading...
             </div>
