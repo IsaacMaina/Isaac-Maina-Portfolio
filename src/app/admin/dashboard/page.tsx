@@ -2567,7 +2567,7 @@ export default function AdminDashboardPage() {
                             src={
                               item.src.startsWith("http")
                                 ? item.src
-                                : `https://fsoevobqzmjhjhkpwfgb.supabase.co/storage/v1/object/public/Images/${item.src}`
+                                : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/Images/${item.src}`
                             }
                             alt={item.alt}
                             className="w-16 h-16 rounded object-cover border border-accent-cyan"
