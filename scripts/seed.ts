@@ -6,14 +6,23 @@ import bcrypt from 'bcryptjs';
 async function seedDatabase() {
   console.log('Seeding database...');
 
+  // Get password from environment variable for security
+  const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD ||
+                       process.env.DEFAULT_ADMIN_PASSWORD ||
+                       process.env.NEXTAUTH_SECRET?.substring(0, 12) ||
+                       Math.random().toString(36).substring(2, 15) + '!Aa';
+
+  console.log('Admin user will be created with provided/secure default password');
+
   // Hash the password
-  const hashedPassword = await bcrypt.hash('123456', 10);
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
   // Create the main user
   const [createdUser] = await db.insert(users).values({
     name: 'Isaac Maina',
     email: 'mainaisaacwachira2000@gmail.com',
     password: hashedPassword,
+    role: 'admin' // Explicitly set the role to admin
   }).returning({ id: users.id });
 
   const userId = createdUser.id;

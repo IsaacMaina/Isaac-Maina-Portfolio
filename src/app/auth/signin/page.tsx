@@ -1,7 +1,7 @@
 // src/app/auth/signin/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -11,6 +11,31 @@ export default function SignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+
+  // Clear the form fields on component mount to prevent browser auto-fill
+  useEffect(() => {
+    // Clear any values that might have been auto-filled by the browser
+    setEmail('');
+    setPassword('');
+
+    // Additional security: clear form data after a brief delay to handle delayed auto-fill
+    const timer = setTimeout(() => {
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+
+      if (emailInput && (emailInput as HTMLInputElement).value) {
+        (emailInput as HTMLInputElement).value = '';
+        setEmail('');
+      }
+
+      if (passwordInput && (passwordInput as HTMLInputElement).value) {
+        (passwordInput as HTMLInputElement).value = '';
+        setPassword('');
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +67,7 @@ export default function SignIn() {
       <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
         <h1 className="text-2xl font-bold text-center mb-6">Admin Sign In</h1>
         {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">{error}</div>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
               Email
@@ -55,6 +80,11 @@ export default function SignIn() {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
               placeholder="admin@example.com"
+              autoComplete="username"
+              // Additional attributes to prevent browser auto-fill of actual credentials
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
             />
           </div>
           <div>
@@ -70,6 +100,11 @@ export default function SignIn() {
                 required
                 className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
                 placeholder="••••••••"
+                autoComplete="current-password"
+                // Additional attributes to prevent browser auto-fill of actual credentials
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck="false"
               />
               <button
                 type="button"

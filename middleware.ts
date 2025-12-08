@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { addSecurityHeaders } from './src/lib/security-headers';
 
 export function middleware(request: NextRequest) {
   // Check if the request is for an admin route
@@ -8,7 +9,8 @@ export function middleware(request: NextRequest) {
     // This is now handled by the NextAuth middleware
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  return addSecurityHeaders(response);
 }
 
 // Specify the paths where the middleware should run

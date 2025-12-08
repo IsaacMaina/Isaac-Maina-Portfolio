@@ -1,5 +1,6 @@
 // src/app/api/contact/route.ts
 import { NextRequest } from 'next/server';
+import { sanitize } from '@/lib/xss-protection';
 
 // Define the expected request body structure
 interface ContactRequestBody {
@@ -21,17 +22,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Basic email validation
+    // Sanitize and validate inputs to prevent XSS
+    const sanitizedInputs = {
+      name: sanitize.text(name),
+      email: sanitize.text(email),
+      message: sanitize.text(message)
+    };
+
+    // Check if sanitized content is valid (not flagged as XSS)
+    const validations = [
+      sanitize.validate(name),
+      sanitize.validate(email),
+      sanitize.validate(message)
+    ];
+
+    for (const validation of validations) {
+      if (!validation.isValid) {
+        return Response.json(
+          { error: validation.message },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Basic email validation after sanitization
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(sanitizedInputs.email)) {
       return Response.json(
         { error: 'Please provide a valid email address' },
         { status: 400 }
       );
     }
 
-    // Format message for WhatsApp
-    const whatsappMessage = `New Contact Form Submission%0A%0A*From:* ${name}%0A*Email:* ${email}%0A*Message:* ${message}`;
+    // Format message for WhatsApp using sanitized inputs
+    const whatsappMessage = `New Contact Form Submission%0A%0A*From:* ${sanitizedInputs.name}%0A*Email:* ${sanitizedInputs.email}%0A*Message:* ${sanitizedInputs.message}`;
     const phoneNumber = '254758302725'; // Your number in international format without leading 0 or +
 
     // Construct the WhatsApp API URL

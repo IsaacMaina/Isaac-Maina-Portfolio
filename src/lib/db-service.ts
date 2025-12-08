@@ -2,6 +2,7 @@ import { getDb } from '@/db';
 import { users, userProfiles, projects, documents, galleryItems, skillCategories, skills, education, experience, certifications, additionalSkills } from '@/db/schema';
 import { eq, desc, asc, and } from 'drizzle-orm';
 import { cache } from 'react';
+import { DatabaseValidator } from './db-validator';
 
 // Get database instance when needed
 const db = getDb();
@@ -239,11 +240,17 @@ export const getAboutData = async () => {
 // Authentication service
 export async function getUserByEmail(email: string) {
   try {
+    // Validate email input to prevent injection
+    if (!DatabaseValidator.validateEmail(email)) {
+      console.error('Invalid email format provided:', email);
+      return null;
+    }
+
     const userResult = await db
       .select()
       .from(users)
       .where(eq(users.email, email));
-      
+
     return userResult.length > 0 ? userResult[0] : null;
   } catch (error) {
     console.error('Error fetching user by email:', error);
