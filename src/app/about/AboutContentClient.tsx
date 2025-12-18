@@ -33,17 +33,11 @@ interface AboutContentProps {
       period: string;
       description: string;
     }>;
-    certifications: Array<{
-      id: number;
-      title: string;
-      description: string;
-      file?: string; // Added file property for the certificate URL
-    }>;
   };
 }
 
 export default function AboutContentClient({ aboutData }: AboutContentProps) {
-  const { profile, education, experiences, certifications } = aboutData;
+  const { profile, education, experiences } = aboutData;
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Get email from session or use a default value
@@ -176,61 +170,6 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
               </div>
             </ScrollAnimatedElement>
 
-            {/* Certifications */}
-            <ScrollAnimatedElement variant="slideUp" delay={0.5}>
-              <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Certifications</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {certifications.map((cert, index) => (
-                  <ScrollAnimatedElement
-                    key={cert.id}
-                    variant="slideUp"
-                    delay={0.6 + index * 0.05}
-                    as="div"
-                  >
-                    <motion.div
-                      className="p-4 bg-slate-800 rounded-xl hover:bg-slate-700 transition-colors duration-300 hover:shadow-lg"
-                      whileHover={{ y: -5 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{cert.title}</h3>
-                          <p className="text-slate-400 text-sm">{cert.description}</p>
-                        </div>
-                        {cert.file && (
-                          <div className="flex space-x-2 ml-2">
-                            <a
-                              href={cert.file}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-accent-cyan hover:text-cyan-400 flex items-center text-sm"
-                              title="View certificate"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              View
-                            </a>
-                            <a
-                              href={cert.file}
-                              download={cert.title}
-                              className="text-slate-300 hover:text-white flex items-center text-sm ml-2"
-                              title="Download certificate"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                              </svg>
-                              Download
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  </ScrollAnimatedElement>
-                ))}
-              </div>
-            </ScrollAnimatedElement>
           </ScrollAnimatedElement>
         </div>
       </div>
