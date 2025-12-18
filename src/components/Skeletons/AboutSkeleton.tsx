@@ -43,7 +43,7 @@ export default function AboutSkeleton() {
 
           {/* Bio and experience skeleton */}
           <motion.div
-            className="lg:col-span-2 space-y-12"
+            className="lg:col-span-2 space-y-16"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3, duration: 0.5 }}

@@ -100,7 +100,7 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
 
           {/* Biography and Experience */}
           <ScrollAnimatedElement
-            className="lg:col-span-2 space-y-12"
+            className="lg:col-span-2 space-y-16"
             variant="slideLeft"
             delay={0.1}
           >
