@@ -49,7 +49,7 @@ export default function AboutSkeleton() {
             transition={{ delay: 0.3, duration: 0.5 }}
           >
             {/* Biography skeleton */}
-            <div>
+            <div className="mb-16">
               <div className="h-6 bg-slate-700 rounded w-1/4 mb-4 animate-pulse"></div>
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
@@ -59,7 +59,7 @@ export default function AboutSkeleton() {
             </div>
 
             {/* Education skeleton */}
-            <div>
+            <div className="mb-16">
               <div className="h-6 bg-slate-700 rounded w-1/4 mb-4 animate-pulse"></div>
               <div className="space-y-4">
                 {[...Array(2)].map((_, i) => (

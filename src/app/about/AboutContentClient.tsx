@@ -105,7 +105,7 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
             delay={0.1}
           >
             {/* Biography */}
-            <ScrollAnimatedElement variant="slideUp" delay={0.2}>
+            <ScrollAnimatedElement className="mb-16" variant="slideUp" delay={0.2}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Biography</h2>
               <p className="text-slate-300 leading-relaxed">
                 {profile.about}
@@ -113,7 +113,7 @@ export default function AboutContentClient({ aboutData }: AboutContentProps) {
             </ScrollAnimatedElement>
 
             {/* Education */}
-            <ScrollAnimatedElement variant="slideUp" delay={0.3}>
+            <ScrollAnimatedElement className="mb-16" variant="slideUp" delay={0.3}>
               <h2 className="text-2xl font-bold mb-4 pb-2 border-b border-slate-700">Education</h2>
               <div className="space-y-4">
                 {education.map((edu, index) => (
